@@ -1,0 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply min-h-screen bg-page-gradient text-white font-body antialiased;
+}
+
+#root {
+  @apply min-h-screen flex flex-col;
+}
+
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-[Poppins] text-white;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-panel-gradient border border-white/10 shadow-glow rounded-3xl backdrop-blur-lg;
+  }
+
+  .pill-button {
+    @apply rounded-pill font-display text-lg tracking-wide transition-all duration-200 shadow-glow;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold bg-white/15 border border-white/10;
+  }
+
+  .section-card {
+    @apply glass-panel relative overflow-hidden p-4 sm:p-6 md:p-8;
+  }
+
+  .bg-quiz-panel {
+    background-image:
+      radial-gradient(circle at 20% 25%, rgba(255,255,255,0.08) 0, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(94, 169, 255, 0.16) 0, transparent 45%),
+      radial-gradient(circle at 65% 65%, rgba(255,255,255,0.06) 0, transparent 45%),
+      linear-gradient(180deg, #1052b3 0%, #0a3b89 100%);
+  }
+
+  .bg-cream {
+    background: linear-gradient(180deg, #f8ecda 0%, #f1dfc6 100%);
+  }
+
+  .bg-dots {
+    background-image:
+      radial-gradient(rgba(255,255,255,0.18) 1px, transparent 1px),
+      radial-gradient(rgba(255,255,255,0.14) 1px, transparent 1px);
+    background-size: 20px 20px, 26px 26px;
+    background-position: 0 0, 8px 12px;
+  }
+
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+  }
+
+  /** Scrollable area without visible scrollbar (still mouse/touch scroll). */
+  .scrollbar-overlay {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-overlay::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+}
+
+/* Hide scrollbar but keep scroll (e.g. Daily Bonus modal) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
