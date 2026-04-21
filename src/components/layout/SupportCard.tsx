@@ -27,6 +27,7 @@ const SupportCard = () => {
           Need help or have questions? Contact our support team directly or download our mobile apps for the best experience.
         </p>
 
+        {/* 
         <div className="grid grid-cols-2 gap-3 mt-2">
           <a
             href="https://apps.apple.com"
@@ -47,18 +48,19 @@ const SupportCard = () => {
             Android App
           </a>
         </div>
+        */}
 
-        <div className="mt-auto flex flex-col items-center gap-3">
+        <div className="mt-auto flex w-full flex-col items-center gap-3">
           <Button
             onClick={() => dispatch(setReferralModalOpen(true))}
-            className="w-full max-w-xs rounded-full px-4 py-3 text-sm font-semibold uppercase shadow-md active:scale-95"
+            className="w-full rounded-full px-4 py-3 text-sm font-semibold uppercase shadow-md active:scale-95"
           >
             Refer a Friend
           </Button>
           <Button
             variant="secondary"
             onClick={() => dispatch(setSupportModalOpen(true))}
-            className="w-full max-w-xs rounded-full bg-[#0d3e92] py-2.5 text-xs font-semibold uppercase text-white shadow-md active:scale-95 transition-all hover:bg-[#0b2a6c]"
+            className="w-full rounded-full bg-[#0d3e92] py-2.5 text-[10px] font-semibold uppercase text-white shadow-md active:scale-95 transition-all hover:bg-[#0b2a6c] sm:text-xs"
           >
             Email Support
           </Button>

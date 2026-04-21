@@ -1,5 +1,6 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../store/store'
+import InfoTooltip from '../components/ui/InfoTooltip'
 import { fetchUserGems } from '../store/shopSlice'
 import { fetchGemPackages } from '../store/gemPackagesSlice'
 import { authService } from '../services/authService'
@@ -166,16 +167,16 @@ const WalletPage = () => {
   const canWithdraw = (balanceUsd || 0) >= MIN_WITHDRAW_USD
 
   return (
-    <section className="min-h-screen relative overflow-hidden bg-[#0a21c0] p-4 text-white sm:p-6 md:p-8">
+    <section className="section-card relative overflow-hidden rounded-3xl bg-quiz-panel text-white">
       {/* Background stardust */}
       <div className="absolute inset-0 z-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 pointer-events-none" />
       
       <div className="relative z-10 mx-auto max-w-3xl space-y-6">
         {/* Header - Compact */}
         <div className="flex items-center justify-between px-1">
-          <div>
+          <div className="flex items-center gap-2">
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Wallet</h1>
-            <p className="text-xs font-medium text-white/50">Manage your USD rewards and payouts.</p>
+            <InfoTooltip content="Manage your USD rewards and payouts. Rewards are earned from Trivia Challenges." />
           </div>
           <button
             onClick={loadData}
@@ -210,7 +211,7 @@ const WalletPage = () => {
         </div>
 
         {/* Withdraw Section - Compact Grid */}
-        <div className="rounded-2xl border border-white/5 bg-[#1629a3]/80 p-5 sm:p-8 shadow-lg backdrop-blur-md">
+        <div className="rounded-2xl border border-white/5 bg-quiz-panel/60 p-5 sm:p-8 shadow-lg backdrop-blur-md">
            <div className="flex flex-col gap-5 md:flex-row md:items-start">
              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#4158f2] to-[#2b40d6] shadow-md text-white">
                 <IconDownload />
@@ -264,7 +265,7 @@ const WalletPage = () => {
                 <button
                   onClick={() => void submitWithdraw()}
                   disabled={withdrawBusy || !authed || !canWithdraw}
-                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-[#9146ff] to-[#6d28d9] py-3.5 text-lg font-black text-white shadow-lg transition hover:scale-[1.01] active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed group"
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] py-3.5 text-lg font-bold text-[#7c4c00] shadow-xl transition hover:scale-[1.01] active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed group"
                 >
                   {withdrawBusy ? (
                     <div className="h-5 w-5 animate-spin"><IconRefresh /></div>
@@ -280,7 +281,7 @@ const WalletPage = () => {
         </div>
 
         {/* History - Tighter panel */}
-        <div className="rounded-2xl border border-white/5 bg-[#1629a3]/40 p-4 sm:p-5 backdrop-blur-sm">
+        <div className="rounded-2xl border border-white/5 bg-quiz-panel/40 p-4 sm:p-5 backdrop-blur-sm">
            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 text-white">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2b40d6]/50 shrink-0">

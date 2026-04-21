@@ -78,11 +78,6 @@ function DrawCountdownDigits({ totalSec, emphasized }: { totalSec: number; empha
   )
 }
 
-type HomeProps = {
-  onStart?: () => void
-  loading?: boolean
-}
-
 const BrainMascot = () => (
   <div className="relative mx-auto flex max-w-[min(100%,280px)] items-center justify-center sm:max-w-[min(100%,320px)] md:max-w-none">
     <div className="absolute inset-0 blur-3xl bg-[#fcb72b]/30" />
@@ -95,7 +90,7 @@ const BrainMascot = () => (
   </div>
 )
 
-const Home = ({ onStart: _onStart, loading: _loading }: HomeProps) => {
+const Home = () => {
   const dispatch = useAppDispatch()
   const token = useAppSelector((s) => s.auth.token)
   const { bronzePrizePool, silverPrizePool, nextDrawTime } = useAppSelector((s) => s.timer)
@@ -136,26 +131,28 @@ const Home = ({ onStart: _onStart, loading: _loading }: HomeProps) => {
   const countdownSecs = remainingSec != null && remainingSec > 0 ? remainingSec : 0
 
   return (
-    <section className="section-card relative bg-quiz-panel w-full max-w-[100vw] rounded-2xl shadow-[0_16px_32px_rgba(0,0,0,0.28)] px-3 py-5 sm:rounded-3xl sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 lg:py-10">
-      <HeroParticles />
+    <div className="flex w-full flex-col gap-6 sm:gap-8">
+      {/* Hero Section Card */}
+      <section className="section-card relative w-full overflow-hidden rounded-2xl bg-quiz-panel px-3 py-5 shadow-[0_16px_32px_rgba(0,0,0,0.28)] sm:rounded-3xl sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 lg:py-10">
+        <HeroParticles />
+        <div className="grid grid-cols-1 items-center gap-5 sm:gap-6 md:grid-cols-[1fr_1.05fr] md:gap-8 lg:grid-cols-[1fr_1.1fr]">
+          <motion.div
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="order-1 justify-self-center md:order-none"
+          >
+            <BrainMascot />
+          </motion.div>
 
-      <div className="grid grid-cols-1 items-center gap-5 sm:gap-6 md:grid-cols-[1fr_1.05fr] md:gap-8 lg:grid-cols-[1fr_1.1fr]">
-        <motion.div
-          initial={{ y: 10, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="order-1 justify-self-center md:order-none"
-        >
-          <BrainMascot />
-        </motion.div>
-
-        <div className="order-2 space-y-3 text-center sm:space-y-4 md:order-none lg:text-left">
-          <h1 className="font-display text-2xl leading-tight text-white drop-shadow-glow sm:text-3xl md:text-4xl lg:text-5xl">
-            Welcome to Trivia Coin!
-          </h1>
-          <p className="text-sm text-cloud sm:text-base md:text-lg">Test your knowledge and challenge your friends!</p>
-          <div className="flex flex-col items-center gap-3 sm:gap-4 lg:items-start">
-            <div className="flex w-full max-w-2xl flex-col gap-3 sm:max-w-none">
-              <div className="flex w-full justify-center lg:justify-start">
+          <div className="order-2 space-y-4 text-center md:order-none lg:text-left">
+            <h1 className="font-display text-2xl leading-tight text-white drop-shadow-glow sm:text-3xl md:text-3xl lg:text-4xl">
+              Welcome to Trivia Coin!
+            </h1>
+            <p className="text-sm text-cloud sm:text-base md:text-lg">Test your knowledge and challenge your friends!</p>
+            
+            <div className="mt-4 flex flex-col items-center gap-6 lg:items-start">
+              {/* Play Button Row with Gap Below */}
+              <div className="flex w-full justify-center mb-4 lg:justify-start">
                 <Button
                   data-tour="tour-start-quiz"
                   onClick={() => dispatch(navigate('daily'))}
@@ -164,47 +161,41 @@ const Home = ({ onStart: _onStart, loading: _loading }: HomeProps) => {
                   Play
                 </Button>
               </div>
-              <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch sm:justify-center lg:justify-start lg:gap-4">
-                <div className="flex w-full max-w-[13rem] flex-col justify-center gap-2 sm:mx-0 lg:max-w-[11.5rem]">
+
+              {/* Prizes and Timer Row with Gap Between Pools */}
+              <div className="flex w-full flex-col items-stretch justify-center gap-6 sm:flex-row lg:justify-start">
+                <div className="grid w-full grid-cols-1 gap-4 sm:flex sm:flex-col sm:min-w-[12rem] lg:min-w-0 lg:max-w-[13.5rem] lg:flex-1">
                   <div
-                    className="flex items-center gap-2 rounded-2xl border-2 border-[#ffd700] px-2.5 py-2 sm:gap-3 sm:px-3 sm:py-2"
+                    className="flex items-center gap-2 rounded-2xl border-2 border-[#ffd700] px-3 py-2 sm:gap-3"
                     style={{ backgroundColor: 'rgba(139, 69, 19, 0.35)' }}
                   >
-                    <img
-                      src={bronzeMedalPng}
-                      alt=""
-                      className="h-6 w-6 shrink-0 object-contain sm:h-7 sm:w-7"
-                    />
-                    <span className="font-display text-sm font-bold text-[#ffd700] sm:text-base">Bronze</span>
-                    <span className="ml-auto flex items-center gap-1 text-sm font-bold tabular-nums text-[#ffd700] sm:gap-1.5 sm:text-base">
+                    <img src={bronzeMedalPng} alt="" className="h-6 w-6 shrink-0 object-contain sm:h-7 sm:w-7" />
+                    <span className="font-display text-sm font-bold text-[#ffd700] sm:text-base">Rookie</span>
+                    <span className="ml-auto flex items-center gap-1 text-sm font-bold tabular-nums text-[#ffd700] sm:text-base">
                       {bronzeLabel}
-                      <img src={tpcoinPng} alt="" className="h-4 w-4 shrink-0 object-contain sm:h-5 sm:w-5" />
+                      <img src={tpcoinPng} alt="" className="h-4 w-4 shrink-0 object-contain" />
                     </span>
                   </div>
                   <div
-                    className="flex items-center gap-2 rounded-2xl border-2 border-[#c0c0c0] px-2.5 py-2 sm:gap-3 sm:px-3 sm:py-2"
+                    className="flex items-center gap-2 rounded-2xl border-2 border-[#c0c0c0] px-3 py-2 sm:gap-3"
                     style={{ backgroundColor: 'rgba(30, 58, 138, 0.45)' }}
                   >
-                    <img
-                      src={silverMedalPng}
-                      alt=""
-                      className="h-6 w-6 shrink-0 object-contain sm:h-7 sm:w-7"
-                    />
-                    <span className="font-display text-sm font-bold text-white sm:text-base">Silver</span>
-                    <span className="ml-auto flex items-center gap-1 text-sm font-bold tabular-nums text-white sm:gap-1.5 sm:text-base">
+                    <img src={silverMedalPng} alt="" className="h-6 w-6 shrink-0 object-contain sm:h-7 sm:w-7" />
+                    <span className="font-display text-sm font-bold text-white sm:text-base">Scholar</span>
+                    <span className="ml-auto flex items-center gap-1 text-sm font-bold tabular-nums text-white sm:text-base">
                       {silverLabel}
-                      <img src={tpcoinPng} alt="" className="h-4 w-4 shrink-0 object-contain sm:h-5 sm:w-5" />
+                      <img src={tpcoinPng} alt="" className="h-4 w-4 shrink-0 object-contain" />
                     </span>
                   </div>
                 </div>
+
                 <div
-                  className="flex min-w-0 flex-1 flex-col justify-center gap-2 rounded-2xl border-2 border-[#ffd700] px-3 py-2.5 shadow-[0_0_28px_rgba(255,214,107,0.22),inset_0_1px_0_rgba(255,255,255,0.1)] sm:max-w-[16rem] lg:max-w-[14rem]"
+                  className="flex w-full flex-col justify-center gap-2 rounded-2xl border-2 border-[#ffd700] px-3 py-2.5 shadow-[0_0_24px_rgba(255,214,107,0.2)] sm:max-w-[16rem] lg:max-w-[14rem]"
                   style={{
-                    background:
-                      'linear-gradient(165deg, rgba(255,182,77,0.22) 0%, rgba(30,58,138,0.55) 45%, rgba(12,42,120,0.65) 100%)',
+                    background: 'linear-gradient(165deg, rgba(255,182,77,0.2) 0%, rgba(30,58,138,0.5) 45%, rgba(12,42,120,0.6) 100%)',
                   }}
                 >
-                  <p className="text-center text-[10px] font-bold uppercase tracking-[0.2em] text-[#ffd66b] drop-shadow-[0_0_10px_rgba(255,214,107,0.45)] sm:text-[11px]">
+                  <p className="text-center text-[10px] font-bold uppercase tracking-[0.2em] text-[#ffd66b] sm:text-[11px]">
                     Next draw
                   </p>
                   <DrawCountdownDigits totalSec={countdownSecs} emphasized />
@@ -213,11 +204,11 @@ const Home = ({ onStart: _onStart, loading: _loading }: HomeProps) => {
             </div>
           </div>
         </div>
-      </div>
 
-      <WinnersCarousel />
-
-    </section>
+        {/* Your Winnings Section Restored Inside the Main Container */}
+        <WinnersCarousel />
+      </section>
+    </div>
   )
 }
 

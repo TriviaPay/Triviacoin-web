@@ -24,7 +24,7 @@ const ChallengeFriendsCard = ({ onPlayAgain, onShare }: Props) => (
         <img src={girlImg} alt="Emily" className="h-20 w-20 rounded-full border-4 border-[#f55b6a] shadow-glow object-cover" />
       </div>
 
-      <div className="mt-2 flex w-full max-w-xs flex-col gap-2">
+      <div className="mt-2 flex w-full flex-col gap-2">
         <Button onClick={onPlayAgain} className="w-full rounded-full px-4 py-2 text-xs sm:text-sm uppercase">
           Play Again
         </Button>

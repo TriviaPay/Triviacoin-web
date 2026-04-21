@@ -469,7 +469,7 @@ export default function TriviaChallengePanel({
       'w-full rounded-2xl border px-4 py-3 text-left text-sm font-medium transition sm:py-4 sm:text-base '
     const showResult = marksActive && correctOptionId
     if (!showResult) {
-      return base + (selectedId === id ? 'border-amber-400 bg-amber-500/20 text-white' : 'border-white/20 bg-white/5 text-white hover:bg-white/10')
+      return base + (selectedId === id ? 'border-[#ffd66b] border-2 bg-[#ffd66b]/20 text-white shadow-[0_0_12px_rgba(255,214,107,0.3)] ring-1 ring-[#ffd66b]/30' : 'border-white/20 bg-white/5 text-white hover:bg-white/10')
     }
     if (correctOptionId && id === correctOptionId) {
       return base + 'border-green-500 bg-green-500/15 text-green-100'

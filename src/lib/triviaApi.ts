@@ -10,7 +10,7 @@ const GUEST_401_DEMO_QUESTION = {
   question_id: -9001,
   question_order: 1,
   question:
-    'Placeholder question — your API returned 401 for guests. Deploy guest `X-Device-UUID` support or keep VITE_USE_GUEST_STUB_ON_401=true for local UI only.',
+    'This is a sample question for guests. Sign in to unlock the full trivia experience and compete for real rewards!',
   option_a: 'A',
   option_b: 'B',
   option_c: 'C',

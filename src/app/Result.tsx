@@ -2,12 +2,10 @@ import { useEffect, useState } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import StatCard from '../components/ui/StatCard'
 import Button from '../components/ui/Button'
-import { useAppDispatch, useAppSelector } from '../store/store'
+import { useAppSelector } from '../store/store'
 import { computeBonus } from '../lib/utils'
 import type { LeaderboardEntry } from '../lib/utils'
 import { apiService } from '../services/apiService'
-import { setQuizStatus } from '../store/quizSlice'
-import { ChevronRightIcon } from '../components/icons/TriviaIcons'
 import trophyPng from '../assets/trophy.png'
 
 type Props = {
@@ -15,8 +13,7 @@ type Props = {
 }
 
 const Result = (_props: Props) => {
-  const dispatch = useAppDispatch()
-  const { score, correctCount, questions } = useAppSelector((state) => state.quiz)
+  const { correctCount, questions } = useAppSelector((state) => state.quiz)
   const token = useAppSelector((s) => s.auth.token)
   const [level, setLevel] = useState<number | string>('—')
 
@@ -51,7 +48,7 @@ const Result = (_props: Props) => {
       <div className="mt-6 grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Correct Answers" value={correctCount} />
         <StatCard label="wrong answers" value={total - correctCount} />
-        <StatCard label="triviacoins Earned" value={totalPoints} />
+        <StatCard label="STREAK" value={totalPoints} />
         <StatCard label="Level" value={level} highlight />
       </div>
 
@@ -59,13 +56,6 @@ const Result = (_props: Props) => {
         <Button variant="secondary" onClick={() => {}} className="w-full sm:w-auto rounded-full px-6 py-2.5 text-sm uppercase">
           Share Results
         </Button>
-        <button
-          onClick={() => dispatch(setQuizStatus('review'))}
-          className="group flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-[#ffd66b] transition hover:text-[#ffebad] active:scale-95 sm:w-auto"
-        >
-          Review Questions
-          <ChevronRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-        </button>
       </div>
     </section>
   )
