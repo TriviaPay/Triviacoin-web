@@ -42,7 +42,7 @@ const ChallengeCard = () => {
         <div className="mt-auto flex justify-center">
           <Button
             variant="secondary"
-            className="w-full max-w-xs rounded-full bg-gradient-to-b from-[#3082e8] to-[#1b66c7] py-3 text-sm font-semibold uppercase text-white"
+            className="w-full rounded-full bg-gradient-to-b from-[#3082e8] to-[#1b66c7] py-3 text-sm font-semibold uppercase text-white shadow-md active:scale-95"
           >
             Send Invite
           </Button>

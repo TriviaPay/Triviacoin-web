@@ -175,6 +175,13 @@ export default function WinnersCarousel() {
           <h3 className="font-display text-sm font-bold uppercase tracking-wide text-[#ffd66b] sm:text-base">
             Your Winnings
           </h3>
+          <button
+            type="button"
+            onClick={() => dispatch(navigate('leaderboard'))}
+            className="text-xs font-semibold text-white/80 underline decoration-[#ffd66b]/60 underline-offset-2 hover:text-white"
+          >
+            View all
+          </button>
         </div>
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
           {user?.recent_draw_earnings && user.recent_draw_earnings > 0 ? (

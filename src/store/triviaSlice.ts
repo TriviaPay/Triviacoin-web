@@ -220,7 +220,7 @@ export const fetchFreeModeQuestions = createAsyncThunk('trivia/fetchFreeModeQues
 
 export const fetchCurrentFreeQuestion = createAsyncThunk('trivia/fetchCurrentFreeQuestion', async (_, { rejectWithValue }) => {
   try {
-    const raw = await triviaRequest<unknown>(T.FREE_MODE_CURRENT)
+    const raw = await triviaRequest<unknown>(`${T.FREE_MODE_CURRENT}?_t=${Date.now()}`)
     return parseFreeCurrentPayload(raw)
   } catch (e) {
     return rejectWithValue(e instanceof Error ? e.message : 'Failed to load question')
@@ -250,7 +250,7 @@ export const submitFreeModeAnswer = createAsyncThunk(
 
 export const fetchBronzeModeQuestion = createAsyncThunk('trivia/fetchBronzeModeQuestion', async (_, { rejectWithValue }) => {
   try {
-    const res = await triviaRequest<{ question: BronzeSilverModeQuestion }>(T.BRONZE_QUESTION)
+    const res = await triviaRequest<{ question: BronzeSilverModeQuestion }>(`${T.BRONZE_QUESTION}?_t=${Date.now()}`)
     if (!res?.question) return rejectWithValue('No bronze question')
     return res.question
   } catch (e) {
@@ -289,7 +289,7 @@ export const submitBronzeModeAnswer = createAsyncThunk(
 
 export const fetchSilverModeQuestion = createAsyncThunk('trivia/fetchSilverModeQuestion', async (_, { rejectWithValue }) => {
   try {
-    const res = await triviaRequest<{ question: BronzeSilverModeQuestion }>(T.SILVER_QUESTION)
+    const res = await triviaRequest<{ question: BronzeSilverModeQuestion }>(`${T.SILVER_QUESTION}?_t=${Date.now()}`)
     if (!res?.question) return rejectWithValue('No silver question')
     return res.question
   } catch (e) {
@@ -347,6 +347,9 @@ export const triviaSlice = createSlice({
       state.isSubmitted = false
       state.submissionResult = null
       state.error = null
+      state.currentFreeModeQuestion = null
+      state.currentBronzeModeQuestion = null
+      state.currentSilverModeQuestion = null
     },
     clearTriviaError: (state) => {
       state.error = null

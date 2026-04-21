@@ -20,7 +20,7 @@ const OptionButton = ({ label, text, state, onClick, disabled, compact }: Props)
     default:
       'bg-gradient-to-b from-white to-[#e9f1ff] text-[#0b2a6c] border border-[#cdd9ff] shadow-[0_10px_20px_rgba(0,0,0,0.12)]',
     selected:
-      'bg-gradient-to-b from-[#e8f2ff] to-[#cde2ff] text-[#0b2a6c] border border-[#6baeff] shadow-[0_12px_22px_rgba(0,0,0,0.16)]',
+      'bg-gradient-to-b from-[#fff7ed] to-[#ffedd5] text-[#9a3412] border-2 border-[#f97316] shadow-[0_0_15px_rgba(249,115,22,0.25)] ring-2 ring-[#f97316]/20',
     correct:
       'bg-gradient-to-b from-[#22c55e] to-[#16a34a] text-white border border-[#15803d] shadow-[0_14px_26px_rgba(34,197,94,0.45)]',
     wrong:

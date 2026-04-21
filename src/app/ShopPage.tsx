@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAppDispatch, useAppSelector } from '../store/store'
+import InfoTooltip from '../components/ui/InfoTooltip'
 import { fetchUserGems, fetchOwnedAvatarIds } from '../store/shopSlice'
 import { fetchCosmetics } from '../store/cosmeticsSlice'
 import { fetchGemPackages } from '../store/gemPackagesSlice'
@@ -51,11 +52,9 @@ const ShopPage = () => {
     <section className="section-card rounded-3xl bg-quiz-panel text-white">
       <div className="mx-auto w-full max-w-4xl space-y-4 sm:space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div className="flex items-center gap-2">
             <h2 className="text-2xl sm:text-3xl font-display">Shop</h2>
-            <p className="text-sm sm:text-base text-white/70">
-              Gem packs and avatars — purchase on checkout with Stripe or PayPal. Trivia subscriptions are on Trivia Challenge.
-            </p>
+            <InfoTooltip content="Gem packs and avatars — purchase on checkout with Stripe or PayPal. Trivia subscriptions are on Trivia Challenge." />
           </div>
           <div className="flex shrink-0 items-center gap-2 self-start rounded-2xl border border-white/15 bg-white/10 px-4 py-2 sm:self-center">
             <img src={diamondImg} alt="" className="h-7 w-7 object-contain sm:h-8 sm:w-8" aria-hidden />

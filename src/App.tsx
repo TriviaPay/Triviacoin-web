@@ -26,6 +26,7 @@ import SettingsPage from './app/SettingsPage'
 import CheckoutPage from './app/CheckoutPage'
 import BackgroundAudio from './components/audio/BackgroundAudio'
 import AdSenseBottomBar from './components/ads/AdSenseBottomBar'
+import Footer from './components/layout/Footer'
 
 const App = () => {
   const dispatch = useAppDispatch()
@@ -67,20 +68,26 @@ const App = () => {
       <BackgroundAudio />
       <Navbar />
       <AuthModal />
-      <InstructionModal />
       <ReferralModal
         visible={useAppSelector((s) => s.ui.referralModalOpen)}
         onClose={() => dispatch(setReferralModalOpen(false))}
       />
       <SupportModal />
 
-      <main className="relative z-10 w-full min-w-0 px-3 pb-28 pt-20 sm:px-6 sm:pb-32 sm:pt-24 lg:px-8">
+      <main className="relative z-10 w-full min-w-0 px-3 pb-4 pt-20 sm:px-6 sm:pb-8 sm:pt-24 lg:px-8">
         <div className="mx-auto w-full min-w-0 max-w-screen-2xl space-y-4 sm:space-y-6">
+          {/* Mobile-only currency header */}
+          {currentPage === 'home' && (
+            <div className="lg:hidden">
+              <HomeActionIcons />
+            </div>
+          )}
+
           {currentPage === 'home' && (
             <>
               <div className="grid w-full items-start gap-6 lg:grid-cols-[3fr_1fr] lg:items-start">
                 <Home />
-                <div className="w-full min-w-0 self-start lg:sticky lg:top-28">
+                <div className="hidden w-full min-w-0 self-start lg:sticky lg:top-28 lg:block">
                   <HomeActionIcons />
                   <HomeFreeQuizEmbed />
                 </div>
@@ -107,6 +114,7 @@ const App = () => {
           {currentPage === 'settings' && <SettingsPage />}
         </div>
       </main>
+      <Footer />
       <AdSenseBottomBar />
     </div>
   )

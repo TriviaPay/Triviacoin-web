@@ -260,7 +260,7 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
               )
               dispatch(navigate('checkout'))
             }}
-            className="rounded-xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] px-6 py-2.5 text-base font-bold text-[#7c4c00] shadow-xl transition hover:brightness-110 sm:px-8 sm:py-3 sm:text-lg"
+            className="rounded-xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] px-6 py-2.5 text-base font-bold text-[#7c4c00] shadow-xl transition hover:brightness-110 w-full sm:w-auto sm:px-8 sm:py-3 sm:text-lg"
           >
             {tier === 'bronze' ? 'Subscribe to Rookie Mode' : 'Subscribe to Scholar Mode'}
           </motion.button>
@@ -270,7 +270,7 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => dispatch(setReferralModalOpen(true))}
-            className="rounded-xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] px-6 py-2.5 text-base font-bold text-[#7c4c00] shadow-xl transition hover:brightness-110 sm:px-8 sm:py-3 sm:text-lg"
+            className="rounded-xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] px-6 py-2.5 text-base font-bold text-[#7c4c00] shadow-xl transition hover:brightness-110 w-full sm:w-auto sm:px-8 sm:py-3 sm:text-lg"
           >
             Refer a Friend
           </motion.button>
