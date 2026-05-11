@@ -246,14 +246,10 @@ export default function DailyBonusModal({ open, onClose }: Props) {
   const {
     rewards,
     currentDay,
-    streakCount,
     daysClaimedList,
     dayStatus,
-    totalGemsEarnedThisWeek,
     loading,
     claimInProgress,
-    error,
-    message,
     lastFetch,
   } = useAppSelector((s) => s.dailyRewards)
   const gems = useAppSelector((s) => s.shop.userBalance.gems)
@@ -308,7 +304,6 @@ export default function DailyBonusModal({ open, onClose }: Props) {
   }, [rewards, lastFetch, currentDay, daysClaimedList, dayStatus, hasClaimedToday])
 
   const currentDayReward = useMemo(() => displayRewards.find((r) => r.day === currentDay), [displayRewards, currentDay])
-  const currentTotalGemsFromRewards = useMemo(() => displayRewards.filter((r) => r.claimed).reduce((s, r) => s + r.value, 0), [displayRewards])
 
   const canClaimToday = useMemo(() => {
     const todayReward = displayRewards.find((r) => r.day === currentDay)
