@@ -343,14 +343,17 @@ const ProfilePage = () => {
 
   if (!isAuthenticated) {
     return (
-      <section className="section-card mx-auto max-w-2xl rounded-3xl bg-quiz-panel px-4 py-8 text-center text-white sm:px-8">
+      <section
+        className="section-card mx-auto max-w-2xl rounded-3xl bg-quiz-panel px-4 py-8 text-center text-white sm:px-8"
+        data-tour="tour-profile"
+      >
         <p className="text-lg">Please sign in to view your profile.</p>
       </section>
     )
   }
 
   return (
-    <section className="w-full text-white min-h-[calc(100vh-6rem)]">
+    <section className="w-full text-white min-h-[calc(100vh-6rem)]" data-tour="tour-profile">
       <ProfileHeader
             isEditing={isEditing}
             isSaving={isSaving}

@@ -10,7 +10,8 @@ export type CheckoutDraft = {
   quantity: number
   label: string
   paymentRoute: CheckoutPaymentRoute
-  price?: string
+  /** Display-only; may be formatted string or amount for UI. */
+  price?: string | number
   iconUrl?: string
   /** Cancel / back navigation target after clearing checkout. */
   cancelReturnPage?: Page

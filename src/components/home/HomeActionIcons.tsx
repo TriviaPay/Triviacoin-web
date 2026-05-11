@@ -61,8 +61,8 @@ export default function HomeActionIcons() {
           </div>
         </div>
 
-        {/* Action Buttons Group - Right Aligned, Transparent by Default */}
-        <div className="flex items-center">
+        {/* Action Buttons Group — bell + daily bonus (tour highlights this cluster) */}
+        <div className="flex items-center" data-tour="tour-notifications">
           <motion.button
             type="button"
             whileHover={{ y: -2, scale: 1.05, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}

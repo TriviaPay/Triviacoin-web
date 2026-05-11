@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAppDispatch, useAppSelector } from './store/store'
 import { fetchNextDraw } from './store/timerSlice'
 import { fetchLeaderboard } from './lib/utils'
-import { navigate, setReferralModalOpen } from './store/uiSlice'
+import { setReferralModalOpen } from './store/uiSlice'
 import Home from './app/Home'
 import HomeFreeQuizEmbed from './components/home/HomeFreeQuizEmbed'
 import HomeActionIcons from './components/home/HomeActionIcons'
 import Result from './app/Result'
-import ChallengeFriendsCard from './components/layout/ChallengeFriendsCard'
+import AdSenseHomeGridCard from './components/ads/AdSenseHomeGridCard'
 import Navbar from './components/layout/Navbar'
 import FloatingIcons from './components/animations/FloatingIcons'
 import SupportCard from './components/layout/SupportCard'
@@ -58,10 +58,6 @@ const App = () => {
     queryFn: fetchLeaderboard,
   })
 
-  const handlePlayAgain = useCallback(() => {
-    dispatch(navigate('daily'))
-  }, [dispatch])
-
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       <FloatingIcons />
@@ -95,10 +91,7 @@ const App = () => {
 
               <div className="grid w-full gap-6 lg:grid-cols-3">
                 <Result leaderboardQuery={leaderboardQuery} />
-                <ChallengeFriendsCard
-                  onPlayAgain={handlePlayAgain}
-                  onShare={() => navigator.share?.({ title: 'Trivia Quest', text: 'I crushed this quiz!' })}
-                />
+                <AdSenseHomeGridCard />
                 <SupportCard />
               </div>
             </>

@@ -28,10 +28,10 @@ export const fetchOwnedAvatarIds = createAsyncThunk('shop/fetchOwnedAvatarIds', 
 
 export const purchaseAvatarWithGems = createAsyncThunk(
   'shop/purchaseAvatar',
-  async (_, { rejectWithValue }) => {
+  async (_itemId: string | undefined, { rejectWithValue }) => {
     // Gem purchases are disabled in this view as we are aligning with specified payment flows.
     return rejectWithValue('Gem purchases are temporarily unavailable')
-  }
+  },
 )
 
 const shopSlice = createSlice({

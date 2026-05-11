@@ -7,6 +7,7 @@ import { FAQ_DATA, type FAQItem } from '../constants/settingsFaq'
 import { apiService, type NativeAppVersionsPayload } from '../services/apiService'
 import clsx from 'clsx'
 import { useOnboarding } from '../components/Onboarding/useOnboarding'
+import { useAppDispatch, useAppSelector } from '../store/store'
 
 const STORAGE_NOTIFICATIONS = 'ui.notificationsEnabled'
 
@@ -18,7 +19,6 @@ const SettingsPage = () => {
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated)
   const sessionToken = useAppSelector((s) => s.auth.token)
   const apiToken = sessionToken && sessionToken.trim() ? sessionToken : null
-  const userEmail = useAppSelector((s) => s.auth.user?.email ?? '')
   const descope = useDescope()
 
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
@@ -116,50 +116,8 @@ const SettingsPage = () => {
     setExpandedFAQ(null)
   }
 
-  const handleOpenSupport = () => {
-    if (userEmail) setSupportEmail(userEmail)
-    setSupportModalOpen(true)
-  }
-
-  const handleCloseSupport = () => {
-    setSupportModalOpen(false)
-    setSupportDescription('')
-  }
-
-  const handleSupportSubmit = async () => {
-    const email = supportEmail.trim()
-    if (!email) {
-      window.alert('Please enter your email address')
-      return
-    }
-    const desc = supportDescription.trim()
-    if (!desc) {
-      window.alert('Please enter a description of your request')
-      return
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      window.alert('Please enter a valid email address')
-      return
-    }
-
-    setIsSubmittingSupport(true)
-    try {
-      await new Promise((r) => setTimeout(r, 800))
-      window.alert('Your support request has been submitted. We will get back to you soon!')
-      handleCloseSupport()
-    } catch {
-      window.alert('Failed to submit support request. Please try again.')
-    } finally {
-      setIsSubmittingSupport(false)
-    }
-  }
-
-  const supportDisabled =
-    isSubmittingSupport || !supportEmail.trim() || !supportDescription.trim()
-
   return (
-    <section className="section-card rounded-3xl bg-quiz-panel text-white">
+    <section className="section-card rounded-3xl bg-quiz-panel text-white" data-tour="tour-settings">
       <div className="mx-auto w-full max-w-4xl space-y-5 px-3 py-5 sm:space-y-6 sm:px-5 sm:py-6 md:px-8 md:py-8">
         <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
           <ToggleRow
@@ -366,14 +324,6 @@ function HeadsetIcon({ className }: { className?: string }) {
         strokeLinejoin="round"
         d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
       />
-    </svg>
-  )
-}
-
-function CloseIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   )
 }

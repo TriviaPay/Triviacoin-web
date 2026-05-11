@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useAppDispatch, useAppSelector } from '../store/store'
-import { clearActiveChatId, clearPendingChatPeer } from '../store/uiSlice'
+import { clearActiveChatId, clearPendingChatPeer, setChatStatus } from '../store/uiSlice'
 import { apiService } from '../services/apiService'
 import ChatAvatar from '../components/chat/ChatAvatar'
 import SwipeableMessage from '../components/chat/SwipeableMessage'
@@ -157,6 +157,49 @@ const ChatsPage = () => {
   })
   const currentUserId = accountId ?? (user as any)?.account_id ?? (user as any)?.id ?? profile?.account_id
 
+  const applyChatMetadata = useCallback(
+    (meta: { online: number; unread: number; requests: number } | undefined) => {
+      if (!meta) return
+      dispatch(
+        setChatStatus({
+          unreadMessages: Number.isFinite(meta.unread) ? meta.unread : 0,
+          friendRequests: Number.isFinite(meta.requests) ? meta.requests : 0,
+          onlineCount: Number.isFinite(meta.online) ? meta.online : 0,
+        }),
+      )
+    },
+    [dispatch],
+  )
+
+  const refreshNavbarChatBadge = useCallback(async () => {
+    if (!token) return
+    const res = await apiService.getGlobalChatMessages(token, 1)
+    applyChatMetadata(res.metadata)
+  }, [token, applyChatMetadata])
+
+  const fetchGlobalMessages = useCallback(async (opts?: { quiet?: boolean }) => {
+    if (!opts?.quiet) setGlobalLoading(true)
+    try {
+      const res = await apiService.getGlobalChatMessages(token)
+      if (res.success && res.metadata) applyChatMetadata(res.metadata)
+      if (res.success && res.data) {
+        const seen = new Set<number>()
+        setGlobalMessages(res.data.filter((m: { id: number }) => {
+          if (seen.has(m.id)) return false
+          seen.add(m.id)
+          return true
+        }))
+      }
+    } finally {
+      if (!opts?.quiet) setGlobalLoading(false)
+    }
+  }, [token, applyChatMetadata])
+
+  useEffect(() => {
+    if (!token) return
+    void refreshNavbarChatBadge()
+  }, [token, refreshNavbarChatBadge])
+
   useEffect(() => {
     if (!token) {
       try {
@@ -177,23 +220,6 @@ const ChatsPage = () => {
         }
       }
     })
-  }, [token])
-
-  const fetchGlobalMessages = useCallback(async (opts?: { quiet?: boolean }) => {
-    if (!opts?.quiet) setGlobalLoading(true)
-    try {
-      const res = await apiService.getGlobalChatMessages(token)
-      if (res.success && res.data) {
-        const seen = new Set<number>()
-        setGlobalMessages(res.data.filter((m: { id: number }) => {
-          if (seen.has(m.id)) return false
-          seen.add(m.id)
-          return true
-        }))
-      }
-    } finally {
-      if (!opts?.quiet) setGlobalLoading(false)
-    }
   }, [token])
 
   const fetchConversations = useCallback(async () => {
@@ -270,25 +296,43 @@ const ChatsPage = () => {
   }, [activeTab])
 
   useEffect(() => {
-    if (selectedConvId && token) {
-      messagesFetchedRef.current = selectedConvId
-      fetchPrivateMessages(selectedConvId)
-    } else {
+    if (!selectedConvId || !token) {
       setPrivateMessages([])
       messagesFetchedRef.current = null
+      return
     }
-  }, [selectedConvId, token, fetchPrivateMessages])
+    messagesFetchedRef.current = selectedConvId
+    let cancelled = false
+    void (async () => {
+      await fetchPrivateMessages(selectedConvId)
+      if (!cancelled) await refreshNavbarChatBadge()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedConvId, token, fetchPrivateMessages, refreshNavbarChatBadge])
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (activeTab === 'GLOBAL') void fetchGlobalMessages({ quiet: true })
       else if (!token) {
         /* guests: no private poll */
-      } else if (selectedConvId) void fetchPrivateMessages(selectedConvId)
-      else void fetchConversations()
+      } else if (selectedConvId) {
+        void fetchPrivateMessages(selectedConvId).then(() => refreshNavbarChatBadge())
+      } else {
+        void fetchConversations().then(() => refreshNavbarChatBadge())
+      }
     }, 15000)
     return () => clearInterval(interval)
-  }, [token, activeTab, selectedConvId, fetchGlobalMessages, fetchConversations, fetchPrivateMessages])
+  }, [
+    token,
+    activeTab,
+    selectedConvId,
+    fetchGlobalMessages,
+    fetchConversations,
+    fetchPrivateMessages,
+    refreshNavbarChatBadge,
+  ])
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current
@@ -305,14 +349,20 @@ const ChatsPage = () => {
     return () => el.removeEventListener('scroll', handleScroll)
   }, [handleScroll, activeTab, globalMessages.length, privateMessages.length])
 
+  const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior })
+  }, [])
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [globalMessages.length, privateMessages.length])
+    scrollMessagesToBottom('smooth')
+  }, [globalMessages.length, privateMessages.length, scrollMessagesToBottom])
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    scrollMessagesToBottom('smooth')
     setShowScrollDown(false)
-  }, [])
+  }, [scrollMessagesToBottom])
 
   const filteredConversations = conversations.filter(
     (c) =>
@@ -340,7 +390,8 @@ const ChatsPage = () => {
     setAcceptRejectLoading(false)
     if (res.success) {
       await fetchConversations()
-      void fetchPrivateMessages(selectedConvId)
+      await fetchPrivateMessages(selectedConvId)
+      void refreshNavbarChatBadge()
     }
   }
 
@@ -355,6 +406,7 @@ const ChatsPage = () => {
     if (res.success) {
       setSelectedConvId(null)
       await fetchConversations()
+      void refreshNavbarChatBadge()
     }
   }
 
@@ -368,13 +420,11 @@ const ChatsPage = () => {
     const res = await apiService.sendGlobalMessage(token, msg, replyId)
     setGlobalSending(false)
     if (res.success) {
-      const data = await (async () => {
-        const r = await apiService.getGlobalChatMessages(token)
-        return r.success && r.data ? r.data : null
-      })()
-      if (data) {
+      const r = await apiService.getGlobalChatMessages(token)
+      if (r.success && r.metadata) applyChatMetadata(r.metadata)
+      if (r.success && r.data) {
         const seen = new Set<number>()
-        setGlobalMessages(data.filter((m) => {
+        setGlobalMessages(r.data.filter((m) => {
           if (seen.has(m.id)) return false
           seen.add(m.id)
           return true
@@ -385,7 +435,7 @@ const ChatsPage = () => {
     } else {
       setDraft(msg)
     }
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+    setTimeout(() => scrollMessagesToBottom('smooth'), 50)
   }
 
   const handleSendPrivate = async () => {
@@ -421,10 +471,11 @@ const ChatsPage = () => {
           if (cid != null) setSelectedConvId(cid)
           if (cid != null) void fetchPrivateMessages(cid)
         }
+        void refreshNavbarChatBadge()
       } else {
         setDraft(msg)
       }
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+      setTimeout(() => scrollMessagesToBottom('smooth'), 50)
       return
     }
 
@@ -455,10 +506,11 @@ const ChatsPage = () => {
       } else {
         fetchPrivateMessages(selectedConvId!)
       }
+      void refreshNavbarChatBadge()
     } else {
       setDraft(msg)
     }
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+    setTimeout(() => scrollMessagesToBottom('smooth'), 50)
   }
 
   const handleReplyToMessage = (id: number, text: string, sender: string) => {
@@ -547,9 +599,12 @@ const ChatsPage = () => {
     activeTab === 'PRIVATE' && (selectedConvId != null || pendingComposePeerId != null)
 
   return (
-    <div className="mx-auto flex w-full max-w-[100%] flex-col md:max-w-[60%] lg:max-w-[60%]">
-      {/* Toggles - centered, outside container */}
-      <div className="mb-4 flex justify-center gap-2">
+    <section
+      className="section-card relative mx-auto flex h-[calc(100dvh-10.5rem)] max-h-[calc(100dvh-10.5rem)] min-h-[320px] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-quiz-panel px-3 py-4 text-white sm:max-w-2xl md:max-w-3xl sm:px-5 sm:py-5"
+      data-tour="tour-chats"
+    >
+      {/* Toggles - centered */}
+      <div className="mb-4 flex shrink-0 justify-center gap-2">
         <button
           onClick={() => setActiveTab('GLOBAL')}
           className={`rounded-full px-6 py-2.5 text-sm font-semibold transition ${
@@ -572,14 +627,11 @@ const ChatsPage = () => {
         </button>
       </div>
 
-      <div
-        className="flex h-[calc(100vh-10rem)] min-h-[320px] sm:min-h-[360px] w-full flex-col sm:flex-row gap-0 sm:gap-4 overflow-hidden rounded-2xl sm:rounded-3xl bg-quiz-panel text-white"
-        style={{ maxHeight: 'calc(100vh - 10rem)' }}
-      >
+      <div className="flex min-h-0 flex-1 w-full flex-col gap-0 overflow-hidden rounded-xl border border-white/10 bg-black/10 text-white sm:flex-row sm:gap-4">
         {/* Left panel - only for PRIVATE; on mobile: full width when no conv selected, hidden when conv selected */}
         {activeTab === 'PRIVATE' && (
           <div
-            className={`flex flex-col border-r-0 border-white/10 sm:w-[300px] sm:min-w-[280px] sm:max-w-[320px] sm:border-r ${
+            className={`flex min-h-0 flex-col border-r-0 border-white/10 sm:w-[300px] sm:min-w-[280px] sm:max-w-[320px] sm:border-r ${
               privateDetailOpen ? 'hidden sm:flex' : 'flex w-full'
             }`}
           >
@@ -661,7 +713,7 @@ const ChatsPage = () => {
 
         {/* Messages area - hidden on mobile until a thread or waiting state is open */}
         <div
-          className={`relative flex min-w-0 flex-1 flex-col ${
+          className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${
             activeTab === 'PRIVATE' && !privateDetailOpen ? 'hidden sm:flex' : 'flex'
           }`}
         >
@@ -860,7 +912,7 @@ const ChatsPage = () => {
           ) : null}
         </div>
       </div>
-    </div>
+    </section>
   )
 }
 

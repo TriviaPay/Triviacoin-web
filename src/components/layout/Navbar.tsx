@@ -109,11 +109,13 @@ const Navbar = ({ onStart: _onStart }: Props) => {
     const fetchChatStatus = async () => {
       const res = await apiService.getGlobalChatMessages(token, 1)
       if (!cancelled && res.success && res.metadata) {
+        const m = res.metadata
         dispatch(
           setChatStatus({
-            unreadMessages: res.metadata.unread_messages_count ?? 0,
-            friendRequests: res.metadata.friend_requests_count ?? 0,
-            onlineCount: res.metadata.online_count ?? 0,
+            /** Total unread from `/global-chat` (`unread_messages_count`) — server aggregates global + private. */
+            unreadMessages: Number.isFinite(m.unread) ? m.unread : 0,
+            friendRequests: Number.isFinite(m.requests) ? m.requests : 0,
+            onlineCount: Number.isFinite(m.online) ? m.online : 0,
           })
         )
       }

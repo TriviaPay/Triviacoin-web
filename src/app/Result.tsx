@@ -36,7 +36,10 @@ const Result = (_props: Props) => {
   }, [token])
 
   return (
-    <section className="section-card relative flex min-h-[320px] w-full flex-col rounded-3xl bg-quiz-panel text-center text-white shadow-[0_16px_32px_rgba(0,0,0,0.28)] max-w-full sm:max-w-3xl mx-auto">
+    <section
+      className="section-card relative flex min-h-[320px] w-full flex-col rounded-3xl bg-quiz-panel text-center text-white shadow-[0_16px_32px_rgba(0,0,0,0.28)] max-w-full sm:max-w-3xl mx-auto"
+      data-tour="tour-home-results"
+    >
       <div className="flex justify-center py-4">
         <img src={trophyPng} alt="" className="h-24 w-24 object-contain sm:h-28 sm:w-28" />
       </div>

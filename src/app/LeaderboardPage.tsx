@@ -135,7 +135,10 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
   }
 
   return (
-    <section className="section-card relative mx-auto w-full max-w-xl rounded-3xl bg-quiz-panel text-white sm:max-w-2xl md:max-w-3xl">
+    <section
+      className="section-card relative mx-auto w-full max-w-xl rounded-3xl bg-quiz-panel text-white sm:max-w-2xl md:max-w-3xl"
+      data-tour="tour-leaderboard"
+    >
       <div className="mb-6 flex flex-col items-center gap-4">
         <h3 className="text-2xl sm:text-3xl font-display">Leaderboard</h3>
         <div className="mx-auto flex w-full max-w-[300px] items-center justify-center gap-2 rounded-full bg-white/10 p-1 sm:max-w-sm">

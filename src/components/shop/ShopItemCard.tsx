@@ -59,6 +59,8 @@ const ShopItemCard = ({ item, tab }: Props) => {
       window.alert('Card checkout is not available for this item right now.')
       return
     }
+    const parsed =
+      item.price && String(item.price).trim() !== '' ? parseFloat(String(item.price)) : Number.NaN
     dispatch(
       startCheckout({
         productId: billableId,
@@ -66,8 +68,8 @@ const ShopItemCard = ({ item, tab }: Props) => {
         label: checkoutLabel,
         paymentRoute: 'one_time',
         cancelReturnPage: 'shop',
-        iconUrl: url,
-        price: (item.price && item.price.trim() !== '') ? parseFloat(item.price) : undefined,
+        iconUrl: url ?? undefined,
+        price: Number.isFinite(parsed) ? parsed : undefined,
       }),
     )
     dispatch(navigate('checkout'))

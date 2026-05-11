@@ -17,7 +17,10 @@ export const PlayStoreIcon = ({ className = 'h-5 w-5 fill-current' }: { classNam
 const SupportCard = () => {
   const dispatch = useAppDispatch()
   return (
-    <section className="section-card flex min-h-[320px] w-full flex-col rounded-3xl bg-cream bg-dots text-[#0b2a6c] shadow-[0_16px_32px_rgba(0,0,0,0.18)] border border-[#e5d4b8]">
+    <section
+      className="section-card flex min-h-[320px] w-full flex-col rounded-3xl bg-cream bg-dots text-[#0b2a6c] shadow-[0_16px_32px_rgba(0,0,0,0.18)] border border-[#e5d4b8]"
+      data-tour="tour-support"
+    >
       <div className="flex flex-1 flex-col gap-4">
         <div className="text-center">
           <h3 className="text-xl font-display text-[#0b2a6c]">Customer Support</h3>

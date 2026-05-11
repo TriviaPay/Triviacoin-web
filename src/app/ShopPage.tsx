@@ -49,8 +49,11 @@ const ShopPage = () => {
   const showError = status === 'failed' && items.length === 0
 
   return (
-    <section className="section-card rounded-3xl bg-quiz-panel text-white">
-      <div className="mx-auto w-full max-w-4xl space-y-4 sm:space-y-6">
+    <section
+      className="section-card relative mx-auto w-full max-w-xl rounded-3xl bg-quiz-panel text-white sm:max-w-2xl md:max-w-3xl"
+      data-tour="tour-shop"
+    >
+      <div className="mx-auto w-full max-w-xl space-y-4 px-3 pb-6 pt-4 sm:space-y-6 sm:px-5 sm:pb-8 sm:pt-5 md:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-2xl sm:text-3xl font-display">Shop</h2>
@@ -128,7 +131,7 @@ const ShopPage = () => {
         )}
 
         {items.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {items.map((item) => (
               <ShopItemCard key={`${item.type}-${item.id}`} item={item} tab={activeTab} />
             ))}

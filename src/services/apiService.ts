@@ -590,10 +590,15 @@ export const apiService = {
       if (!res.ok) return { success: false, error: String(fullRaw?.message ?? fullRaw?.detail ?? 'Failed to load') }
       
       const list = Array.isArray(data) ? data : (data?.messages as any[]) ?? []
+      const num = (v: unknown) => {
+        const x = Number(v)
+        return Number.isFinite(x) ? x : 0
+      }
       const metadata = {
-        online: Number(data?.online_count ?? fullRaw?.online_count ?? 0),
-        unread: Number(data?.unread_messages_count ?? fullRaw?.unread_messages_count ?? 0),
-        requests: Number(data?.friend_requests_count ?? fullRaw?.friend_requests_count ?? 0),
+        online: num(data?.online_count ?? fullRaw?.online_count),
+        /** Mirrors API `unread_messages_count` (combined unread when server sends it). */
+        unread: num(data?.unread_messages_count ?? fullRaw?.unread_messages_count),
+        requests: num(data?.friend_requests_count ?? fullRaw?.friend_requests_count),
       }
       return { success: true, data: list, metadata }
     } catch (e) {

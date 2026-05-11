@@ -87,6 +87,7 @@ const DailyChallenges = () => {
   const [playMode, setPlayMode] = useState<TriviaPlayMode | null>(null)
   const [playTierIndex, setPlayTierIndex] = useState<number | null>(null)
   const [autoSlide, setAutoSlide] = useState(true)
+  const [hoverPauseCarousel, setHoverPauseCarousel] = useState(false)
   const scrollerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -119,14 +120,14 @@ const DailyChallenges = () => {
   }
 
   useEffect(() => {
-    if (!autoSlide) return undefined
+    if (!autoSlide || hoverPauseCarousel) return undefined
     let current = active
     const id = window.setInterval(() => {
       current = (current + 1) % modes.length
       dispatch(setGameIndex(current))
     }, 3200)
     return () => window.clearInterval(id)
-  }, [dispatch, active, autoSlide])
+  }, [dispatch, active, autoSlide, hoverPauseCarousel])
 
   const change = (dir: number) => {
     const next = (active + dir + modes.length) % modes.length
@@ -158,7 +159,7 @@ const DailyChallenges = () => {
   }
 
   return (
-    <section className="section-card relative overflow-hidden rounded-3xl bg-quiz-panel">
+    <section className="section-card relative overflow-hidden rounded-3xl bg-quiz-panel" data-tour="tour-daily-challenge">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <h3 className="text-2xl font-display text-white sm:text-3xl">Trivia Challenge</h3>
@@ -209,7 +210,6 @@ const DailyChallenges = () => {
             const billableId =
               idx >= 1 ? billableSubscriptionProductId(idx, subscriptionPlans, modesStatus) : null
             const planTitle = card.name
-            const checkoutLabel = `${planTitle} Subscription`
             const currentPrizePool = idx === 1 ? bronzePrizePool : idx === 2 ? silverPrizePool : 0
             const prizePoolLabel = currentPrizePool > 0
               ? currentPrizePool.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -230,6 +230,8 @@ const DailyChallenges = () => {
                   x: vw < 1024 ? 0 : offset * slidePx,
                 }}
                 transition={{ type: 'spring', stiffness: vw < 1024 ? 140 : 120, damping: vw < 1024 ? 16 : 12 }}
+                onMouseEnter={() => setHoverPauseCarousel(true)}
+                onMouseLeave={() => setHoverPauseCarousel(false)}
                 onClick={() => {
                   if (!isActive) {
                     dispatch(setGameIndex(idx))
@@ -324,8 +326,8 @@ const DailyChallenges = () => {
                                 label,
                                 paymentRoute: 'subscription',
                                 cancelReturnPage: 'daily',
-                                iconUrl: card.badge,
-                                price,
+                                iconUrl: typeof card.badge === 'string' ? card.badge : undefined,
+                                price: price !== undefined ? price : undefined,
                               }),
                             )
                             dispatch(navigate('checkout'))
@@ -362,8 +364,8 @@ const DailyChallenges = () => {
                                   label: `${card.name} Subscription`,
                                   paymentRoute: 'subscription',
                                   cancelReturnPage: 'daily',
-                                  iconUrl: card.badge,
-                                  price,
+                                  iconUrl: typeof card.badge === 'string' ? card.badge : undefined,
+                                  price: price !== undefined ? price : undefined,
                                 }),
                               )
                               dispatch(navigate('checkout'))
