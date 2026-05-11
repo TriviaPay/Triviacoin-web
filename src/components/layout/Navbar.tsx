@@ -10,9 +10,7 @@ import { apiService } from '../../services/apiService'
 import { setChatStatus } from '../../store/uiSlice'
 import { resolveProfileDisplayMedia } from '../../utils/profileDisplayMedia'
 import ChatAvatar from '../chat/ChatAvatar'
-import DailyBonusModal from '../daily/DailyBonusModal'
-import NotificationsDrawer from '../notifications/NotificationsDrawer'
-import { subscribe as subscribeNotifications, syncFromApi, unreadCount as getUnreadCount } from '../../services/notificationService'
+import { subscribe as subscribeNotifications, syncFromApi } from '../../services/notificationService'
 import { useOnboarding } from '../Onboarding/OnboardingContext'
 
 import gemPng from '../../assets/diamond.png'
@@ -89,7 +87,7 @@ const Navbar = ({ onStart: _onStart }: Props) => {
 
   useEffect(() => {
     return subscribeNotifications(() => {
-      // getUnreadCount() or similar logic
+      /* optional: drive badge refresh */
     })
   }, [])
 

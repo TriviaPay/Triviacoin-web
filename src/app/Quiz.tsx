@@ -6,7 +6,7 @@ import OptionButton from '../components/quiz/OptionButton'
 import type { OptionState } from '../components/quiz/OptionButton'
 import TimerPill from '../components/quiz/TimerPill'
 import { useAppDispatch, useAppSelector } from '../store/store'
-import { finishQuiz, nextQuestion, selectAnswer } from '../store/quizSlice'
+import { finishQuiz, nextQuestion, prevQuestion, selectAnswer, setQuizStatus } from '../store/quizSlice'
 import { useTimer } from '../hooks/useTimer'
 import { useSound } from '../hooks/useSound'
 

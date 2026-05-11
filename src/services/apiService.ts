@@ -210,6 +210,34 @@ export const apiService = {
     }
   },
 
+  /** Owned avatar catalog for profile picker; falls back to empty when route is absent. */
+  async fetchOwnedAvatars(
+    token: string,
+  ): Promise<{ success: boolean; data?: Array<{ id: string; name?: string; url?: string }>; error?: string }> {
+    try {
+      const res = await fetchWithAuth(`${BASE_URL}/shop/avatars/owned`, { method: 'GET', token })
+      if (!res.ok) return { success: true, data: [] }
+      const raw = (await res.json()) as Record<string, unknown>
+      const list = (raw?.data ?? raw?.avatars ?? raw?.items) as unknown
+      if (!Array.isArray(list)) return { success: true, data: [] }
+      const data: Array<{ id: string; name?: string; url?: string }> = []
+      for (const row of list) {
+        if (!row || typeof row !== 'object') continue
+        const o = row as Record<string, unknown>
+        const id = String(o.id ?? o.avatar_id ?? '').trim()
+        const urlRaw = o.url ?? o.image_url
+        const url = typeof urlRaw === 'string' ? urlRaw.trim() : undefined
+        const nameRaw = o.name
+        const name = typeof nameRaw === 'string' ? nameRaw.trim() : undefined
+        if (!id && !url) continue
+        data.push({ id: id || (url ?? 'avatar'), name, url })
+      }
+      return { success: true, data }
+    } catch {
+      return { success: true, data: [] }
+    }
+  },
+
   async sendReferral(token: string): Promise<{
     success: boolean
     data?: { referral_code: string; share_text: string; app_link: string }

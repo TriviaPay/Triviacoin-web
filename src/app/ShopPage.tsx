@@ -42,11 +42,11 @@ const ShopPage = () => {
   }, [activeTab, dispatch])
 
   const items: ShopCatalogItem[] = activeTab === 'gems' ? gemPackages.items : cosmetics.items
-  const status = activeTab === 'gems' ? gemPackages.status : cosmetics.status
-  const error = activeTab === 'gems' ? gemPackages.error : cosmetics.error
+  const catalogLoading = activeTab === 'gems' ? gemPackages.loading : cosmetics.loading
+  const catalogError = activeTab === 'gems' ? gemPackages.error : cosmetics.error
 
-  const showLoading = status === 'loading' && items.length === 0
-  const showError = status === 'failed' && items.length === 0
+  const showLoading = catalogLoading && items.length === 0
+  const showError = Boolean(catalogError) && items.length === 0
 
   return (
     <section
@@ -108,7 +108,7 @@ const ShopPage = () => {
         {showError && (
           <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-6 text-center">
             <p className="font-semibold text-red-100">Could not load items</p>
-            {error && <p className="mt-2 text-sm text-red-100/80">{error}</p>}
+            {catalogError && <p className="mt-2 text-sm text-red-100/80">{catalogError}</p>}
             <button
               type="button"
               onClick={() => {

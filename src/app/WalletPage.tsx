@@ -7,7 +7,7 @@ import { authService } from '../services/authService'
 import { apiService } from '../services/apiService'
 import { createStripeCheckoutSession, PaymentApiError } from '../services/payments'
 import { selectWalletFundingProductId } from '../utils/walletFundingProduct'
-import { fetchWalletInfo, fetchTransactions, fetchWithdrawals, type Transaction, type Withdrawal } from '../store/walletSlice'
+import { fetchWalletInfo, fetchTransactions, fetchWithdrawals } from '../store/walletSlice'
 import { fetchModesStatus } from '../store/triviaSlice'
 import { fetchSubscriptionPlans } from '../store/subscriptionsSlice'
 import { navigate } from '../store/uiSlice'
@@ -48,7 +48,7 @@ const IconArrowDownLeft = () => (
 const WalletPage = () => {
   const dispatch = useAppDispatch()
   const { tpcoins } = useAppSelector((s) => s.shop.userBalance)
-  const { balanceUsd, transactions, withdrawals, loading, error: walletError } = useAppSelector((s) => s.wallet)
+  const { balanceUsd, transactions, withdrawals, loading, error: walletLoadError } = useAppSelector((s) => s.wallet)
   const authed = useAppSelector((s) => s.auth.isAuthenticated)
   const token = useAppSelector((s) => s.auth.token)
   const user = useAppSelector((s) => s.auth.user)
@@ -362,6 +362,11 @@ const WalletPage = () => {
       {/* Main wallet panel (withdraw, history) */}
       <section className="section-card relative w-full rounded-3xl bg-quiz-panel">
         <div className="relative z-10 mx-auto w-full max-w-xl space-y-6 px-3 pb-6 pt-4 sm:px-5 sm:pb-8 sm:pt-5 md:max-w-none md:px-6">
+        {walletLoadError ? (
+          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-300">
+            {walletLoadError}
+          </p>
+        ) : null}
         {/* Withdraw Section - Compact Grid */}
         <div className="rounded-2xl border border-white/20 bg-quiz-panel/60 p-5 shadow-lg backdrop-blur-md sm:p-8">
            <div className="flex flex-col gap-5 md:flex-row md:items-start">
@@ -570,7 +575,10 @@ const WalletPage = () => {
            )}
         </div>
 
-        <div className="flex justify-center pb-8">
+        <div className="flex flex-col items-center justify-center gap-2 pb-8">
+          {fundError ? (
+            <p className="max-w-md px-2 text-center text-[11px] font-semibold text-red-400">{fundError}</p>
+          ) : null}
           {authed && (
              <button
                onClick={payStripe}

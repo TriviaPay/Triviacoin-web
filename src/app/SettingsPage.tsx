@@ -1,6 +1,5 @@
 import { setSound, navigate, toggleNotifications, setSupportModalOpen } from '../store/uiSlice'
 import { logout } from '../store/authSlice'
-import Button from '../components/ui/Button'
 import { useState, useCallback, useEffect } from 'react'
 import { useDescope } from '@descope/react-sdk'
 import { FAQ_DATA, type FAQItem } from '../constants/settingsFaq'
