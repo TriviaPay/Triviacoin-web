@@ -36,18 +36,18 @@ const Result = (_props: Props) => {
 
   return (
     <section
-      className="section-card relative flex min-h-[320px] w-full flex-col rounded-3xl bg-quiz-panel text-center text-white shadow-[0_16px_32px_rgba(0,0,0,0.28)] max-w-full sm:max-w-3xl mx-auto"
+      className="section-card relative flex min-h-[320px] w-full flex-col rounded-3xl bg-quiz-panel text-center text-white shadow-[0_16px_32px_rgba(0,0,0,0.28)]"
       data-tour="tour-home-results"
     >
       <div className="flex justify-center py-4">
         <img src={trophyPng} alt="" className="h-24 w-24 object-contain sm:h-28 sm:w-28" />
       </div>
-      <h2 className="text-3xl font-display">Well Done!</h2>
-      <p className="text-lg text-cloud">
+      <h2 className="type-section-title text-safe">Well Done!</h2>
+      <p className="type-body text-cloud">
         You scored {correctCount} out of {total}!
       </p>
 
-      <div className="mt-6 grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid flex-1 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         <StatCard label="Correct Answers" value={correctCount} />
         <StatCard label="wrong answers" value={total - correctCount} />
         <StatCard label="STREAK" value={totalPoints} />
@@ -55,7 +55,7 @@ const Result = (_props: Props) => {
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-center">
-        <Button variant="secondary" onClick={() => {}} className="w-full sm:w-auto rounded-full px-6 py-2.5 text-sm uppercase">
+        <Button variant="secondary" onClick={() => {}} className="w-full sm:w-auto rounded-full px-6 py-2.5 uppercase">
           Share Results
         </Button>
       </div>

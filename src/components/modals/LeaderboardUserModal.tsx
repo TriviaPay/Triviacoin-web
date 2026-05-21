@@ -101,7 +101,7 @@ const LeaderboardUserModal = ({
             ) : null}
           </div>
 
-          <h3 id="lb-user-title" className="font-display text-center text-2xl font-bold text-[#ffd66b]">
+          <h3 id="lb-user-title" className="type-modal-title text-center font-bold text-[#ffd66b] text-safe">
             {row.name}
           </h3>
 

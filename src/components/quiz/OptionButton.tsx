@@ -38,8 +38,8 @@ const OptionButton = ({ label, text, state, onClick, disabled, compact }: Props)
         clsx(
           'flex w-full items-center justify-between rounded-pill text-left font-semibold transition-all duration-200',
           compact
-            ? 'gap-2 px-3 py-1.5 text-xs sm:gap-2.5 sm:px-3.5 sm:py-2 sm:text-sm'
-            : 'gap-3 px-4 py-3 text-base',
+            ? 'gap-2 px-3 py-1.5 text-fluid-xs sm:gap-2.5 sm:px-3.5 sm:py-2 sm:text-fluid-sm'
+            : 'gap-2.5 px-3.5 py-2.5 text-fluid-sm sm:gap-3 sm:px-4 sm:py-3 sm:text-fluid-base lg:text-fluid-lg',
           'hover:-translate-y-[1px]',
           palette[state],
           disabled && 'cursor-not-allowed opacity-70',
@@ -49,12 +49,12 @@ const OptionButton = ({ label, text, state, onClick, disabled, compact }: Props)
       <span
         className={twMerge(
           'flex shrink-0 items-center justify-center rounded-full bg-white/70 font-display text-[#0b2a6c] shadow-inner',
-          compact ? 'h-7 w-7 text-xs sm:h-8 sm:w-8 sm:text-sm' : 'h-9 w-9 text-lg',
+          compact ? 'h-7 w-7 text-fluid-xs sm:h-8 sm:w-8 sm:text-fluid-sm' : 'h-8 w-8 text-fluid-sm sm:h-9 sm:w-9 sm:text-fluid-lg',
         )}
       >
         {label}
       </span>
-      <span className={clsx('flex-1 break-words', compact ? 'text-xs sm:text-sm' : 'text-base')}>{text}</span>
+      <span className={clsx('flex-1 break-words text-safe', compact ? 'text-fluid-xs sm:text-fluid-sm' : 'text-fluid-sm sm:text-fluid-base lg:text-fluid-lg')}>{text}</span>
       {state === 'correct' && <span className="flex items-center text-white"><CheckIcon /></span>}
       {state === 'wrong' && <span className="text-lg">✖️</span>}
     </motion.button>

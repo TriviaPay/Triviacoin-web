@@ -69,7 +69,7 @@ const ProfilePictureModal = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold">Change Profile Picture</h3>
+          <h3 className="type-modal-title font-bold text-safe">Change Profile Picture</h3>
           <button
             onClick={onClose}
             className="p-2 rounded-full hover:bg-white/20 transition"

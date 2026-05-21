@@ -94,7 +94,7 @@ const Quiz = ({ loading, onNextFallback, questionsCount }: Props) => {
   if (!activeQuestion) {
     return (
       <div className="section-card w-full rounded-3xl text-center text-white">
-        <p className="mb-2 text-xl font-display">No questions yet</p>
+        <p className="mb-2 type-card-title text-safe">No questions yet</p>
         <Button onClick={onNextFallback}>Reload</Button>
       </div>
     )
@@ -108,23 +108,23 @@ const Quiz = ({ loading, onNextFallback, questionsCount }: Props) => {
       </div>
 
       <div className="relative flex flex-col gap-4">
-        <div className="rounded-t-2xl bg-gradient-to-b from-[#4a9eff]/30 to-transparent px-6 py-3">
-          <h2 className="text-xl font-display text-white">{modeName} {quizStatus === 'review' ? 'Review' : 'Quiz'}</h2>
+        <div className="rounded-t-2xl bg-gradient-to-b from-[#4a9eff]/30 to-transparent px-4 py-3 sm:px-6">
+          <h2 className="type-card-title text-white text-safe">{modeName} {quizStatus === 'review' ? 'Review' : 'Quiz'}</h2>
         </div>
 
-        <div className="px-6">
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-sm text-cloud">Question {currentQuestion + 1} of {totalQuestions}</p>
+        <div className="px-4 sm:px-6">
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
+            <p className="type-body-sm text-cloud">Question {currentQuestion + 1} of {totalQuestions}</p>
             {quizStatus !== 'review' && <TimerPill seconds={timer} />}
           </div>
           <ProgressBar value={currentQuestion + (selectedAnswer ? 1 : 0)} max={totalQuestions} />
         </div>
 
-        <div ref={cardRef} className="mx-6 rounded-2xl p-5">
-          <p className="text-lg sm:text-xl md:text-2xl font-bold text-center text-white break-words">{activeQuestion.prompt}</p>
+        <div ref={cardRef} className="mx-4 rounded-2xl p-4 sm:mx-6 sm:p-5">
+          <p className="text-fluid-lg sm:text-fluid-xl md:text-fluid-2xl font-bold text-center text-white break-words text-safe">{activeQuestion.prompt}</p>
         </div>
 
-        <div className="grid gap-3 px-6">
+        <div className="grid gap-2.5 px-4 sm:gap-3 sm:px-6">
           {activeQuestion.options.map((option) => (
             <OptionButton
               key={option.id}
@@ -138,13 +138,13 @@ const Quiz = ({ loading, onNextFallback, questionsCount }: Props) => {
         </div>
 
         {selectedAnswer && quizStatus !== 'review' ? (
-          <p className={`px-6 text-center text-base font-semibold ${lastAnswerCorrect ? 'text-[#22c55e]' : 'text-coral'}`}>
+          <p className={`px-4 sm:px-6 text-center text-fluid-base font-semibold ${lastAnswerCorrect ? 'text-[#22c55e]' : 'text-coral'}`}>
             {lastAnswerCorrect ? 'Correct!' : 'Keep going!'}
           </p>
         ) : null}
 
-        <div className="mt-4 flex flex-col gap-3 px-6 pb-4">
-          <div className="flex gap-3">
+        <div className="mt-4 flex flex-col gap-3 px-4 pb-4 sm:px-6">
+          <div className="flex flex-col gap-3 xs:flex-row">
             {quizStatus === 'review' && (
               <Button
                 variant="secondary"
@@ -158,7 +158,7 @@ const Quiz = ({ loading, onNextFallback, questionsCount }: Props) => {
             <Button
               onClick={handleNext}
               disabled={!selectedAnswer && timer > 0 && quizStatus !== 'review'}
-              className="flex-1 rounded-full py-3 text-lg"
+              className="flex-1 rounded-full py-3"
             >
               {currentQuestion === totalQuestions - 1 ? (quizStatus === 'review' ? 'End Review' : 'Finish Quiz') : 'Next'}
             </Button>
@@ -167,7 +167,7 @@ const Quiz = ({ loading, onNextFallback, questionsCount }: Props) => {
           {quizStatus === 'review' && (
             <button
               onClick={() => dispatch(setQuizStatus('finished'))}
-              className="text-xs font-semibold uppercase tracking-widest text-white/40 transition hover:text-white"
+              className="type-caption font-semibold uppercase tracking-widest text-white/40 transition hover:text-white"
             >
               Exit Review
             </button>

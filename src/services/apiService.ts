@@ -606,7 +606,18 @@ export const apiService = {
   async getGlobalChatMessages(
     token: string | null,
     limit = 50
-  ): Promise<{ success: boolean; data?: any[]; metadata?: { online: number; unread: number; requests: number }; error?: string }> {
+  ): Promise<{
+    success: boolean
+    data?: any[]
+    metadata?: {
+      online: number
+      unread: number
+      unreadGlobal: number
+      unreadPrivate: number
+      requests: number
+    }
+    error?: string
+  }> {
     try {
       const res = await fetchWithAuth(`${BASE_URL}${API_CONFIG.ENDPOINTS.GLOBAL_CHAT.MESSAGES}?limit=${limit}`, {
         method: 'GET',
@@ -624,8 +635,9 @@ export const apiService = {
       }
       const metadata = {
         online: num(data?.online_count ?? fullRaw?.online_count),
-        /** Mirrors API `unread_messages_count` (combined unread when server sends it). */
         unread: num(data?.unread_messages_count ?? fullRaw?.unread_messages_count),
+        unreadGlobal: num(data?.unread_global_count ?? fullRaw?.unread_global_count),
+        unreadPrivate: num(data?.unread_private_count ?? fullRaw?.unread_private_count),
         requests: num(data?.friend_requests_count ?? fullRaw?.friend_requests_count),
       }
       return { success: true, data: list, metadata }

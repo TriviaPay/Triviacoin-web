@@ -8,7 +8,7 @@ type Props = {
 }
 
 const Badge = ({ children, className }: Props) => (
-  <span className={twMerge(clsx('badge bg-white/15 text-sm text-white shadow-inner', className))}>{children}</span>
+  <span className={twMerge(clsx('badge bg-white/15 text-fluid-sm text-white shadow-inner', className))}>{children}</span>
 )
 
 export default Badge

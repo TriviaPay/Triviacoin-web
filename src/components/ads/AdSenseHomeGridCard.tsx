@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { ENV_CONFIG } from '../../config/env'
 
-const CARD_MIN_HEIGHT_PX = 320
+const CARD_MIN_HEIGHT = 320
 
 /**
  * Home results row middle column: same footprint as former ChallengeFriendsCard.
@@ -52,7 +52,7 @@ export default function AdSenseHomeGridCard() {
   }, [hasRealUnit, client, slot])
 
   const shell =
-    'section-card relative flex w-full min-h-[320px] flex-col overflow-hidden rounded-3xl border border-[#e5d4b8] bg-cream bg-dots text-[#0b2a6c] shadow-[0_16px_32px_rgba(0,0,0,0.18)] p-0'
+    'section-card relative flex min-h-[320px] w-full flex-col overflow-hidden rounded-3xl border border-[#e5d4b8] bg-cream bg-dots text-[#0b2a6c] shadow-[0_16px_32px_rgba(0,0,0,0.18)] p-0'
 
   if (hasRealUnit) {
     return (
@@ -60,11 +60,11 @@ export default function AdSenseHomeGridCard() {
         <span className="pointer-events-none absolute left-3 top-2 z-[1] text-[10px] font-semibold uppercase tracking-[0.14em] text-[#0b2a6c]/35">
           Advertisement
         </span>
-        <div className="flex min-h-[320px] flex-1 flex-col">
+        <div className="flex flex-1 flex-col" style={{ minHeight: CARD_MIN_HEIGHT }}>
           <ins
             ref={insRef}
-            className="adsbygoogle block h-full min-h-[320px] w-full max-w-full flex-1"
-            style={{ display: 'block', minHeight: CARD_MIN_HEIGHT_PX }}
+            className="adsbygoogle block h-full w-full max-w-full flex-1"
+            style={{ display: 'block', minHeight: CARD_MIN_HEIGHT }}
             data-ad-client={client}
             data-ad-slot={slot}
             data-ad-format="rectangle"
@@ -86,8 +86,8 @@ export default function AdSenseHomeGridCard() {
         Advertisement
       </span>
       <div
-        className="relative flex min-h-[320px] w-full flex-1 flex-col items-center justify-center bg-[#f7f2e8]"
-        style={{ minHeight: CARD_MIN_HEIGHT_PX }}
+        className="relative flex w-full flex-1 flex-col items-center justify-center bg-[#f7f2e8]"
+        style={{ minHeight: CARD_MIN_HEIGHT }}
       >
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.1]"

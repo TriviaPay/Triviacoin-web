@@ -80,7 +80,7 @@ const ShopItemCard = ({ item, tab }: Props) => {
   }, [startCardCheckout])
 
   return (
-    <div className="flex flex-col rounded-2xl border border-white/20 bg-white/10 p-4 transition hover:bg-white/15">
+    <div className="flex h-full min-w-0 flex-col rounded-2xl border border-white/20 bg-white/10 p-3 transition hover:bg-white/15 sm:p-4">
       <div className="mb-3 flex min-h-[120px] items-center justify-center">
         {url ? (
           <ChatAvatar avatarUrl={url} alt={item.name} size={100} variant="rounded" />
@@ -88,40 +88,52 @@ const ShopItemCard = ({ item, tab }: Props) => {
           <div className="text-4xl opacity-60">🎁</div>
         )}
       </div>
-      <h3 className="font-semibold leading-snug text-white">{item.name}</h3>
+      <h3 className="type-card-title text-safe leading-snug">{item.name}</h3>
       {item.description ? (
-        <p className="mt-1 line-clamp-2 text-sm text-white/70">{item.description}</p>
+        <p className="mt-1 line-clamp-2 type-body-sm text-white/70 text-safe">{item.description}</p>
       ) : null}
-      <div className="mt-auto flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-3 text-sm">
+      <div className="mt-auto flex flex-col gap-3 pt-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {item.gems > 0 && (
-            <span className="inline-flex items-center gap-1.5 font-display text-lg text-[#ffd66b]">
-              <img src={diamondImg} alt="" className="h-6 w-6 object-contain" aria-hidden />
+            <span className="inline-flex items-center gap-1.5 font-display text-fluid-lg text-[#ffd66b]">
+              <img src={diamondImg} alt="" className="h-5 w-5 shrink-0 object-contain sm:h-6 sm:w-6" aria-hidden />
               {item.gems}
             </span>
           )}
           {item.price != null && String(item.price).trim() !== '' && (
-            <span className="font-display text-lg text-[#ffd66b]">${String(item.price).trim()}</span>
+            <span className="font-display text-fluid-lg text-[#ffd66b]">${String(item.price).trim()}</span>
           )}
         </div>
         {tab === 'avatars' && (
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[8rem]">
+          <div className="flex w-full flex-col gap-2">
             <Button
-              className="px-4 py-2 text-sm"
+              full
+              className="whitespace-nowrap !px-4 !py-2.5 !text-fluid-xs sm:!text-fluid-sm"
               disabled={purchaseLoading || isOwned || !hasAuth}
               onClick={handleAvatarBuy}
             >
               {isOwned ? 'Owned' : !hasAuth ? 'Sign in' : !canAfford ? 'Need gems' : 'Buy with gems'}
             </Button>
             {canCheckout ? (
-              <Button variant="secondary" className="px-4 py-2 text-sm" disabled={!hasAuth} onClick={startCardCheckout}>
+              <Button
+                variant="secondary"
+                full
+                className="whitespace-nowrap !px-4 !py-2.5 !text-fluid-xs sm:!text-fluid-sm"
+                disabled={!hasAuth}
+                onClick={startCardCheckout}
+              >
                 {!hasAuth ? 'Sign in' : 'Purchase'}
               </Button>
             ) : null}
           </div>
         )}
         {tab === 'gems' && (
-          <Button className="px-4 py-2 text-sm" disabled={!hasAuth || !billableId} onClick={handleGemBuy}>
+          <Button
+            full
+            className="whitespace-nowrap !px-4 !py-2.5 !text-fluid-xs sm:!text-fluid-sm"
+            disabled={!hasAuth || !billableId}
+            onClick={handleGemBuy}
+          >
             {!hasAuth ? 'Sign in' : !billableId ? 'Unavailable' : 'Purchase'}
           </Button>
         )}

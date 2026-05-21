@@ -20,8 +20,8 @@ const variantClasses: Record<Variant, string> = {
 }
 
 const Button = ({ children, variant = 'primary', full, className, disabled, ...rest }: Props) => {
-  const base =
-    'pill-button inline-flex items-center justify-center gap-2 px-6 py-3 font-bold uppercase tracking-wide rounded-full transition-all duration-150'
+const base =
+    'pill-button inline-flex items-center justify-center gap-2 font-bold uppercase tracking-wide rounded-full transition-all duration-150 text-fluid-sm sm:text-fluid-base px-4 py-2 sm:px-5 sm:py-2.5 whitespace-nowrap'
   return (
     <motion.button
       whileHover={{ scale: disabled ? 1 : 1.03 }}

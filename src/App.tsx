@@ -70,7 +70,7 @@ const App = () => {
       <SupportModal />
 
       <main className="relative z-10 w-full min-w-0 px-3 pb-4 pt-20 sm:px-6 sm:pb-8 sm:pt-24 lg:px-8">
-        <div className="mx-auto w-full min-w-0 max-w-screen-2xl space-y-4 sm:space-y-6">
+        <div className="mx-auto w-full min-w-0 max-w-screen-2xl space-y-4 sm:space-y-6 text-safe">
           {/* Mobile-only currency header */}
           {currentPage === 'home' && (
             <div className="lg:hidden">
@@ -80,7 +80,7 @@ const App = () => {
 
           {currentPage === 'home' && (
             <>
-              <div className="grid w-full items-start gap-6 lg:grid-cols-[3fr_1fr] lg:items-start">
+              <div className="grid w-full items-start gap-6 lg:grid-cols-[3fr_1fr] lg:items-start xl:gap-8">
                 <Home />
                 <div className="hidden w-full min-w-0 self-start lg:sticky lg:top-28 lg:block">
                   <HomeActionIcons />
@@ -88,7 +88,7 @@ const App = () => {
                 </div>
               </div>
 
-              <div className="grid w-full gap-6 lg:grid-cols-3">
+              <div className="grid w-full grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3 md:items-stretch">
                 <Result leaderboardQuery={leaderboardQuery} />
                 <AdSenseHomeGridCard />
                 <SupportCard />

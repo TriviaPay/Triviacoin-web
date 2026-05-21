@@ -18,8 +18,7 @@ import PasswordChecklist, { passwordIsValid } from '../auth/PasswordChecklist'
 import OtpInput from '../auth/OtpInput'
 import ExistingUserPopup from '../auth/ExistingUserPopup'
 
-const fieldClasses =
-  'w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm placeholder-white/70 focus:border-[#ffd66b] focus:bg-white/15 outline-none transition-all'
+const fieldClasses = 'input-field text-safe'
 
 const AUTH_STEPS = {
   EMAIL: 'EMAIL',
@@ -438,21 +437,22 @@ const AuthModal = () => {
     <AnimatePresence>
       {modalOpen && (
         <motion.div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-40 flex overflow-y-auto bg-black/40 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={() => dispatch(closeModal())}
         >
+          <div className="mx-auto flex min-h-full w-full items-center justify-center p-4 sm:p-6">
           <motion.div
-            className="relative w-full max-w-md rounded-3xl bg-gradient-to-b from-[#1450b1] to-[#0c3c89] p-6 text-white shadow-[0_20px_40px_rgba(0,0,0,0.35)] max-h-[90vh] overflow-y-auto"
+            className="relative flex w-full max-w-md min-h-0 max-h-[min(90vh,calc(100dvh-env(safe-area-inset-bottom)-env(safe-area-inset-top)-2rem))] flex-col overflow-hidden rounded-3xl bg-gradient-to-b from-[#1450b1] to-[#0c3c89] p-6 text-white shadow-[0_20px_40px_rgba(0,0,0,0.35)]"
             initial={{ scale: 0.9, y: 20, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.9, y: 10, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-2xl font-display">
+            <div className="flex shrink-0 items-center justify-between">
+              <h3 className="type-modal-title text-safe">
                 {isForgot ? 'Forgot Password' : isSignup ? 'Sign Up' : 'Sign In'}
               </h3>
               <button onClick={() => dispatch(closeModal())} className="text-white/70 hover:text-white">
@@ -461,7 +461,7 @@ const AuthModal = () => {
             </div>
 
             {!isForgot && (
-              <div className="flex gap-2 rounded-full bg-white/10 p-1 text-sm font-semibold">
+              <div className="mt-4 flex shrink-0 gap-2 rounded-full bg-white/10 p-1 text-sm font-semibold">
                 <ToggleChip mode="signin" activeMode={authMode} onClick={() => dispatch(toggleAuthMode())}>
                   Sign In
                 </ToggleChip>
@@ -474,13 +474,27 @@ const AuthModal = () => {
               <button
                 type="button"
                 onClick={handleBackToSignIn}
-                className="mb-2 flex items-center gap-1 text-sm text-white/80 hover:text-white"
+                className="mt-2 flex shrink-0 items-center gap-1 text-sm text-white/80 hover:text-white"
               >
                 ← Back to Sign In
               </button>
             )}
 
-            <div className="mt-4 space-y-4">
+            <div
+              className={
+                [
+                  'mt-4 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain pr-2',
+                  '[scrollbar-width:thin]',
+                  '[scrollbar-color:rgba(255,215,107,0.55)_rgba(255,255,255,0.12)]',
+                  '[&::-webkit-scrollbar]:w-2',
+                  '[&::-webkit-scrollbar-thumb]:rounded-full',
+                  '[&::-webkit-scrollbar-thumb]:bg-[rgba(255,215,107,0.55)]',
+                  '[&::-webkit-scrollbar-track]:rounded-full',
+                  '[&::-webkit-scrollbar-track]:bg-white/10',
+                ].join(' ')
+              }
+            >
+            <div className="space-y-4">
               {isForgot ? (
                 <>
                   {forgotStep === FORGOT_STEPS.EMAIL && (
@@ -718,6 +732,7 @@ const AuthModal = () => {
 
               {status ? <p className="text-xs text-amber-200">{status}</p> : null}
             </div>
+            </div>
 
             <CountryPickerModal
               open={countryOpen}
@@ -740,6 +755,7 @@ const AuthModal = () => {
               identifierType="email"
             />
           </motion.div>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -795,7 +811,7 @@ const Field = ({
   onBlur?: () => void
 }) => (
   <div className="space-y-1">
-    <label className="text-sm text-white/80">
+    <label className="type-label text-safe">
       {label} {optional ? <span className="text-white/40">(optional)</span> : null}
     </label>
     <input
@@ -832,7 +848,7 @@ const PasswordField = ({
   onToggleShowPassword: () => void
 }) => (
   <div className="space-y-1">
-    <label className="text-sm text-white/80">{label}</label>
+    <label className="type-label text-safe">{label}</label>
     <div className="relative">
       <input
         className={`${fieldClasses} pr-12 ${error ? 'border-[#f55b6a] bg-[#f55b6a]/10' : ''}`}

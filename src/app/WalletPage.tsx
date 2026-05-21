@@ -271,7 +271,7 @@ const WalletPage = () => {
 
   const subscriptionAside = authed ? (
     <aside className="relative flex min-h-[220px] min-w-0 flex-col overflow-hidden rounded-2xl border border-white/20 bg-white/[0.06] p-4 shadow-inner backdrop-blur-sm sm:min-h-[240px] sm:p-5 lg:min-h-0">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-[#FFD66B]/95">My subscription</h3>
+      <h3 className="type-caption font-bold uppercase tracking-widest text-[#FFD66B]/95">My subscription</h3>
       <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto">
         {subscriptionBadgeUrls.length > 0 ? (
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -286,13 +286,13 @@ const WalletPage = () => {
           </div>
         ) : null}
         {subscriptionInsights.length > 0 ? (
-          <ul className="list-disc space-y-1.5 pl-4 text-sm font-medium text-white/85">
+          <ul className="list-disc space-y-1.5 pl-4 type-body-sm font-medium text-white/85">
             {subscriptionInsights.map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>
         ) : (
-          <p className="mt-auto text-sm leading-relaxed text-white/55">
+          <p className="mt-auto type-body-sm leading-relaxed text-white/55">
             No trivia subscription on file yet. Unlock paid tiers from{' '}
             <button
               type="button"
@@ -308,7 +308,7 @@ const WalletPage = () => {
     </aside>
   ) : (
     <aside className="relative flex min-h-[220px] min-w-0 flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-white/[0.04] p-5 text-center sm:min-h-[240px] lg:min-h-0">
-      <p className="text-sm text-white/50">Sign in to see your subscription status.</p>
+      <p className="type-body-sm text-white/50">Sign in to see your subscription status.</p>
     </aside>
   )
 
@@ -320,13 +320,13 @@ const WalletPage = () => {
       {/* Header — outside main wallet card */}
       <div className="flex items-center justify-between px-1 pt-1 sm:px-0">
         <div className="flex items-center gap-2">
-          <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Wallet</h1>
+          <h1 className="type-section-title font-bold tracking-tight text-safe">Wallet</h1>
           <InfoTooltip content="Manage your rewards balance and payouts. TriviaCoins (TC) in the shop are separate from this withdrawable balance." />
         </div>
         <button
           onClick={loadData}
           disabled={loading}
-          className="group flex items-center gap-1.5 rounded-full bg-[#FFD66B] px-5 py-2 text-xs font-bold text-[#633e00] shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50"
+          className="group flex items-center gap-1.5 rounded-full bg-[#FFD66B] px-4 py-2 text-fluid-xs font-bold text-[#633e00] shadow-md transition hover:scale-105 active:scale-95 disabled:opacity-50 sm:px-5"
         >
           <span>Refresh</span>
           <div className={`${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`}>
@@ -339,18 +339,18 @@ const WalletPage = () => {
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
         <div className="relative flex min-h-[220px] flex-col overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br from-[#8124ff] via-[#4a1cff] to-[#0a21c0] p-5 shadow-xl sm:min-h-[240px] sm:p-7">
           <div className="relative z-10 flex flex-1 flex-col">
-            <h2 className="text-xs font-bold tracking-widest text-[#FFD66B] uppercase">Balance</h2>
+            <h2 className="type-caption font-bold tracking-widest text-[#FFD66B] uppercase">Balance</h2>
             <div className="mt-3 flex flex-1 items-center gap-4">
               <div className="shrink-0">
                 <img src={tpcoinPng} alt="TC" className="h-12 w-12 sm:h-16 sm:w-16 object-contain drop-shadow-glow" />
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="font-display text-4xl sm:text-5xl font-black text-white leading-none">
+                <span className="type-page-title font-black text-white leading-none text-safe">
                   {!authed ? '—' : (balanceUsd || 0).toFixed(2)}
                 </span>
               </div>
             </div>
-            <p className="mt-auto pt-3 text-[11px] font-medium text-white/40">
+            <p className="mt-auto pt-3 type-body-sm font-medium text-white/40">
               Withdrawable rewards balance. Shop TC uses the converter reference below (1 TC = 1 USD).
             </p>
           </div>
@@ -360,10 +360,10 @@ const WalletPage = () => {
       </div>
 
       {/* Main wallet panel (withdraw, history) */}
-      <section className="section-card relative w-full rounded-3xl bg-quiz-panel">
+      <section className="section-card relative w-full rounded-3xl bg-quiz-panel p-0">
         <div className="relative z-10 mx-auto w-full max-w-xl space-y-6 px-3 pb-6 pt-4 sm:px-5 sm:pb-8 sm:pt-5 md:max-w-none md:px-6">
         {walletLoadError ? (
-          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-300">
+          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-fluid-xs font-semibold text-red-300">
             {walletLoadError}
           </p>
         ) : null}
@@ -375,13 +375,13 @@ const WalletPage = () => {
              </div>
              <div className="flex-1 space-y-5">
                 <div>
-                  <h3 className="text-xl font-bold text-white">Withdraw</h3>
-                  <p className="text-[11px] font-medium text-white/30">Minimum payout $5.00 from available rewards balance.</p>
+                  <h3 className="type-section-title font-bold text-white">Withdraw</h3>
+                  <p className="type-body-sm font-medium text-white/30">Minimum payout $5.00 from available rewards balance.</p>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-white/50 uppercase tracking-widest">Payout amount (USD)</label>
+                    <label className="type-caption font-black text-white/50 uppercase tracking-widest">Payout amount (USD)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -392,7 +392,7 @@ const WalletPage = () => {
                       placeholder="5.00"
                     />
                     {withdrawTcEquivalent != null ? (
-                      <p className="text-[11px] font-semibold text-[#FFD66B]/90">
+                      <p className="type-body-sm font-semibold text-[#FFD66B]/90">
                         ≈{' '}
                         {TC_PER_USD === 1
                           ? withdrawTcEquivalent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
@@ -402,7 +402,7 @@ const WalletPage = () => {
                     ) : null}
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-white/50 uppercase tracking-widest">Payout email</label>
+                    <label className="type-caption font-black text-white/50 uppercase tracking-widest">Payout email</label>
                     <input
                       type="text"
                       value={payoutDetails}
@@ -414,14 +414,14 @@ const WalletPage = () => {
                 </div>
 
                 <div className="rounded-xl border border-white/15 bg-[#0a1a8c]/35 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-white/45">TC converter</p>
-                  <p className="mt-1 text-[10px] text-white/35">
+                  <p className="type-caption font-black uppercase tracking-widest text-white/45">TC converter</p>
+                  <p className="mt-1 type-caption text-white/35">
                     TC → USD reference (same rate as below). Payout uses USD with TC equivalent shown above.
                     {!import.meta.env.PROD ? ' · VITE_TC_PER_USD' : ''}.
                   </p>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-white/50 uppercase tracking-widest">TriviaCoins (TC)</label>
+                      <label className="type-caption font-black text-white/50 uppercase tracking-widest">TriviaCoins (TC)</label>
                       <input
                         type="text"
                         inputMode="numeric"
@@ -432,7 +432,7 @@ const WalletPage = () => {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-white/50 uppercase tracking-widest">USD equivalent</label>
+                      <label className="type-caption font-black text-white/50 uppercase tracking-widest">USD equivalent</label>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -443,7 +443,7 @@ const WalletPage = () => {
                       />
                     </div>
                   </div>
-                  <p className="mt-2 text-[10px] font-medium text-white/30">
+                  <p className="mt-2 type-caption font-medium text-white/30">
                     Wallet TC balance (shop):{' '}
                     <span className="font-bold text-[#FFD66B]/90">{tpcoins.toLocaleString()} TC</span>
                     <span className="text-white/40">
@@ -457,14 +457,14 @@ const WalletPage = () => {
                 {!canWithdraw && (
                   <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
                     <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                    <p className="text-[11px] font-bold text-amber-400">
+                    <p className="type-body-sm font-bold text-amber-400">
                       Insufficient Balance for Payout (Min $5.00 required)
                     </p>
                   </div>
                 )}
 
                 {withdrawMsg && (
-                  <div className={`p-3 rounded-xl text-xs font-bold animate-pulse ${withdrawMsg.type === 'ok' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                  <div className={`p-3 rounded-xl text-fluid-xs font-bold animate-pulse ${withdrawMsg.type === 'ok' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
                     {withdrawMsg.text}
                   </div>
                 )}
@@ -472,7 +472,7 @@ const WalletPage = () => {
                 <button
                   onClick={() => void submitWithdraw()}
                   disabled={withdrawBusy || !authed || !canWithdraw}
-                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] py-3.5 text-lg font-bold text-[#7c4c00] shadow-xl transition hover:scale-[1.01] active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed group"
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] py-3.5 text-fluid-lg font-bold text-[#7c4c00] shadow-xl transition hover:scale-[1.01] active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed group"
                 >
                   {withdrawBusy ? (
                     <div className="h-5 w-5 animate-spin"><IconRefresh /></div>
@@ -495,13 +495,13 @@ const WalletPage = () => {
                   <IconClock />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-white">Transactions</h4>
-                  <p className="text-[10px] font-medium text-white/30">Recent transactions and payouts.</p>
+                  <h4 className="type-body font-bold text-white">Transactions</h4>
+                  <p className="type-caption font-medium text-white/30">Recent transactions and payouts.</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className="flex items-center gap-1.5 rounded-full bg-[#2b40d6] px-4 py-2 text-[11px] font-black text-white transition hover:bg-[#3d52e0] active:scale-95"
+                className="flex items-center gap-1.5 rounded-full bg-[#2b40d6] px-4 py-2 text-fluid-xs font-black text-white transition hover:bg-[#3d52e0] active:scale-95"
               >
                 <span>{showHistory ? 'Hide' : 'View'}</span>
                 <div className={`transition-transform duration-300 ${showHistory ? 'rotate-90' : ''}`}>
@@ -515,23 +515,23 @@ const WalletPage = () => {
                 <div className="flex gap-2 border-b border-white/10 pb-3 overflow-x-auto">
                   <button
                     onClick={() => setHistoryTab('transactions')}
-                    className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-black tracking-widest transition-all rounded-full ${historyTab === 'transactions' ? 'bg-white text-[#0a21c0]' : 'text-white/40 hover:text-white/70'}`}
+                    className={`whitespace-nowrap px-4 py-1.5 type-caption font-black tracking-widest transition-all rounded-full ${historyTab === 'transactions' ? 'bg-white text-[#0a21c0]' : 'text-white/40 hover:text-white/70'}`}
                   >
                     TRANSACTIONS
                   </button>
                   <button
                     onClick={() => setHistoryTab('withdrawals')}
-                    className={`whitespace-nowrap px-4 py-1.5 text-[10px] font-black tracking-widest transition-all rounded-full ${historyTab === 'withdrawals' ? 'bg-white text-[#0a21c0]' : 'text-white/40 hover:text-white/70'}`}
+                    className={`whitespace-nowrap px-4 py-1.5 type-caption font-black tracking-widest transition-all rounded-full ${historyTab === 'withdrawals' ? 'bg-white text-[#0a21c0]' : 'text-white/40 hover:text-white/70'}`}
                   >
                     PAYOUTS
                   </button>
                 </div>
 
-                <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                <div className="max-h-[40vh] sm:max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                   {!authed ? (
-                    <p className="py-8 text-center text-xs font-bold text-white/20 italic">Sign in needed</p>
+                    <p className="py-8 text-center text-fluid-xs font-bold text-white/20 italic">Sign in needed</p>
                   ) : historyTab === 'transactions' ? (
-                    transactions.length === 0 ? <p className="py-8 text-center text-xs font-bold text-white/20 italic">No transactions yet</p> :
+                    transactions.length === 0 ? <p className="py-8 text-center text-fluid-xs font-bold text-white/20 italic">No transactions yet</p> :
                     transactions.map(t => (
                       <div key={t.id} className="flex items-center justify-between rounded-xl bg-white/5 p-3 border border-white/5 hover:bg-white/10 transition">
                         <div className="flex items-center gap-3 text-white">
@@ -539,17 +539,17 @@ const WalletPage = () => {
                             {t.amount_usd >= 0 ? <IconArrowUpRight /> : <IconArrowDownLeft />}
                           </div>
                           <div>
-                            <p className="text-xs font-black uppercase tracking-tight text-white">{t.kind.replace(/_/g, ' ')}</p>
-                            <p className="text-[9px] font-bold text-white/30 uppercase">{formatDate(t.created_at)}</p>
+                            <p className="text-fluid-xs font-black uppercase tracking-tight text-white">{t.kind.replace(/_/g, ' ')}</p>
+                            <p className="text-fluid-2xs font-bold text-white/30 uppercase">{formatDate(t.created_at)}</p>
                           </div>
                         </div>
-                        <p className={`text-xs font-black ${t.amount_usd >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <p className={`text-fluid-xs font-black ${t.amount_usd >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           {t.amount_usd >= 0 ? '+' : ''}{formatCurrency(t.amount_usd || 0)}
                         </p>
                       </div>
                     ))
                   ) : (
-                    withdrawals.length === 0 ? <p className="py-8 text-center text-xs font-bold text-white/20 italic">No payouts</p> :
+                    withdrawals.length === 0 ? <p className="py-8 text-center text-fluid-xs font-bold text-white/20 italic">No payouts</p> :
                     withdrawals.map(w => (
                       <div key={w.id} className="flex items-center justify-between rounded-xl bg-white/5 p-3 border border-white/5 hover:bg-white/10 transition">
                         <div className="flex items-center gap-3 text-white">
@@ -557,13 +557,13 @@ const WalletPage = () => {
                             <IconDownload />
                           </div>
                           <div>
-                            <p className="text-xs font-black uppercase tracking-tight text-white">Payout ({w.withdrawal_method})</p>
-                            <p className="text-[9px] font-bold text-white/30 uppercase">{formatDate(w.requested_at)}</p>
+                            <p className="text-fluid-xs font-black uppercase tracking-tight text-white">Payout ({w.withdrawal_method})</p>
+                            <p className="text-fluid-2xs font-bold text-white/30 uppercase">{formatDate(w.requested_at)}</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs font-black text-white">{formatCurrency(w.amount || 0)}</p>
-                          <p className={`text-[9px] font-black uppercase tracking-widest mt-0.5 ${w.withdrawal_status.toLowerCase() === 'processed' ? 'text-emerald-400' : 'text-[#FFD66B]'}`}>
+                          <p className="text-fluid-xs font-black text-white">{formatCurrency(w.amount || 0)}</p>
+                          <p className={`text-fluid-2xs font-black uppercase tracking-widest mt-0.5 ${w.withdrawal_status.toLowerCase() === 'processed' ? 'text-emerald-400' : 'text-[#FFD66B]'}`}>
                             {w.withdrawal_status}
                           </p>
                         </div>
@@ -577,13 +577,13 @@ const WalletPage = () => {
 
         <div className="flex flex-col items-center justify-center gap-2 pb-8">
           {fundError ? (
-            <p className="max-w-md px-2 text-center text-[11px] font-semibold text-red-400">{fundError}</p>
+            <p className="max-w-md px-2 text-center type-body-sm font-semibold text-red-400">{fundError}</p>
           ) : null}
           {authed && (
              <button
                onClick={payStripe}
                disabled={stripeBusy}
-               className="text-[10px] font-bold text-white/20 underline decoration-white/10 hover:text-white/40 transition-all uppercase tracking-widest"
+               className="type-caption font-bold text-white/20 underline decoration-white/10 hover:text-white/40 transition-all uppercase tracking-widest"
              >
                {stripeBusy ? 'Loading Stripe...' : 'Top-up TriviaCoins'}
              </button>
