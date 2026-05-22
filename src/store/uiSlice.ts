@@ -13,6 +13,12 @@ export type Page =
 export type AuthMode = 'signin' | 'signup' | 'forgot'
 export type LeaderboardTier = 'bronze' | 'silver'
 
+export type PendingChatPeer = {
+  userId: number
+  username?: string
+  avatarUrl?: string
+}
+
 type UIState = {
   modalOpen: boolean
   authMode: AuthMode
@@ -21,7 +27,7 @@ type UIState = {
   leaderboardTier: LeaderboardTier
   activeChatId: string | null
   /** Open private chat with this peer when no conversation id is known yet (e.g. recent winners). */
-  pendingChatPeerUserId: number | null
+  pendingChatPeer: PendingChatPeer | null
   /** Bumps whenever `openChatWithPeerUserId` runs so ChatsPage effects re-run even for the same user id. */
   pendingChatNonce: number
   instructionsOpen: boolean
@@ -57,7 +63,7 @@ const initialState: UIState = {
   selectedGameIndex: 0,
   leaderboardTier: 'bronze',
   activeChatId: null,
-  pendingChatPeerUserId: null,
+  pendingChatPeer: null,
   pendingChatNonce: 0,
   instructionsOpen: false,
   selectedModeName: 'Free',
@@ -106,11 +112,13 @@ const uiSlice = createSlice({
     },
     openChat: (state, action: { payload: string }) => {
       state.activeChatId = action.payload
-      state.pendingChatPeerUserId = null
+      state.pendingChatPeer = null
       state.currentPage = 'chats'
     },
-    openChatWithPeerUserId: (state, action: { payload: number }) => {
-      state.pendingChatPeerUserId = action.payload
+    openChatWithPeerUserId: (state, action: { payload: PendingChatPeer | number }) => {
+      const peer: PendingChatPeer =
+        typeof action.payload === 'number' ? { userId: action.payload } : action.payload
+      state.pendingChatPeer = peer
       state.activeChatId = null
       state.pendingChatNonce += 1
       state.currentPage = 'chats'
@@ -119,7 +127,7 @@ const uiSlice = createSlice({
       state.activeChatId = null
     },
     clearPendingChatPeer: (state) => {
-      state.pendingChatPeerUserId = null
+      state.pendingChatPeer = null
     },
     openInstructions: (state) => {
       state.instructionsOpen = true

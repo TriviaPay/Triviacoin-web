@@ -13,6 +13,7 @@ import { fetchUserGems, setUserGemsBalance } from '../../store/shopSlice'
 import { apiService } from '../../services/apiService'
 import gemImg from '../../assets/diamond.png'
 import diamondsImg from '../../assets/diamonds.png'
+import CloseIcon from '../ui/CloseIcon'
 
 type Props = {
   open: boolean
@@ -427,8 +428,14 @@ export default function DailyBonusModal({ open, onClose }: Props) {
           >
             <div className="relative border-b border-white/10 px-4 pb-1.5 pt-3 text-center sm:pb-3 sm:pt-4">
               <h2 className="type-modal-title font-bold text-[#ffd66b] drop-shadow-glow text-safe">Daily bonus</h2>
-              <button type="button" disabled={busy} onClick={onClose} className="absolute right-2 top-2 p-2 text-cloud transition hover:bg-white/10 disabled:opacity-40 sm:right-3 sm:top-3">
-                <span className="text-2xl leading-none">×</span>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onClose}
+                className="absolute right-2 top-2 p-2 transition hover:bg-white/10 disabled:opacity-40 sm:right-3 sm:top-3"
+                aria-label="Close"
+              >
+                <CloseIcon className="h-7 w-7" />
               </button>
             </div>
 

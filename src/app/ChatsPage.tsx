@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useAppDispatch, useAppSelector } from '../store/store'
 import { clearActiveChatId, clearPendingChatPeer, setChatStatus } from '../store/uiSlice'
+import type { PendingChatPeer } from '../store/uiSlice'
 import { apiService } from '../services/apiService'
 import ChatAvatar from '../components/chat/ChatAvatar'
+import CloseIcon from '../components/ui/CloseIcon'
 import SwipeableMessage from '../components/chat/SwipeableMessage'
 import boyImg from '../assets/boy.jpg'
 import girlImg from '../assets/girl.jpg'
@@ -117,12 +119,14 @@ const ChatsPage = () => {
   const dispatch = useAppDispatch()
   const token = useAppSelector((s) => s.auth.token)
   const activeChatId = useAppSelector((s) => s.ui.activeChatId)
-  const pendingChatPeerUserId = useAppSelector((s) => s.ui.pendingChatPeerUserId)
+  const pendingChatPeer = useAppSelector((s) => s.ui.pendingChatPeer)
   const pendingChatNonce = useAppSelector((s) => s.ui.pendingChatNonce)
   const user = useAppSelector((s) => s.auth.user)
   const profile = useAppSelector((s) => s.auth.user) as { account_id?: number; username?: string } | undefined
 
-  const [activeTab, setActiveTab] = useState<ChatTab>('GLOBAL')
+  const [activeTab, setActiveTab] = useState<ChatTab>(() =>
+    pendingChatPeer != null ? 'PRIVATE' : 'GLOBAL'
+  )
   const [globalMessages, setGlobalMessages] = useState<GlobalMessage[]>([])
   const [conversations, setConversations] = useState<PrivateConversation[]>([])
   const [selectedConvId, setSelectedConvId] = useState<number | null>(null)
@@ -141,6 +145,7 @@ const ChatsPage = () => {
   const [showScrollDown, setShowScrollDown] = useState(false)
   /** Open thread with composer only (no existing conversation) — user sends real first message. */
   const [pendingComposePeerId, setPendingComposePeerId] = useState<number | null>(null)
+  const [pendingComposePeer, setPendingComposePeer] = useState<PendingChatPeer | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -281,36 +286,40 @@ const ChatsPage = () => {
   }, [activeChatId, dispatch])
 
   useEffect(() => {
-    if (!token || pendingChatPeerUserId == null) return
-    const peerId = Number(pendingChatPeerUserId)
+    if (!token || pendingChatPeer == null) return
+    const peer = pendingChatPeer
+    const peerId = Number(peer.userId)
     if (!Number.isFinite(peerId) || peerId <= 0) {
       dispatch(clearPendingChatPeer())
       return
     }
-    setPendingComposePeerId(null)
     let cancelled = false
     setActiveTab('PRIVATE')
     void (async () => {
-      let list: PrivateConversation[] = []
       const res = await apiService.getPrivateConversations(token)
       if (cancelled) return
+      let list: PrivateConversation[] = []
       if (res.success && res.data) {
         list = res.data as PrivateConversation[]
         setConversations(list)
       }
       const match = list.find((c) => Number(c.peer_user_id) === peerId)
+      dispatch(clearPendingChatPeer())
+      if (cancelled) return
       if (match) {
+        setPendingComposePeerId(null)
+        setPendingComposePeer(null)
         setSelectedConvId(match.conversation_id)
-        dispatch(clearPendingChatPeer())
         return
       }
-      dispatch(clearPendingChatPeer())
-      if (!cancelled) setPendingComposePeerId(peerId)
+      setSelectedConvId(null)
+      setPendingComposePeerId(peerId)
+      setPendingComposePeer(peer)
     })()
     return () => {
       cancelled = true
     }
-  }, [pendingChatPeerUserId, pendingChatNonce, token, dispatch])
+  }, [pendingChatPeer, pendingChatNonce, token, dispatch])
 
   useEffect(() => {
     if (activeTab === 'GLOBAL') convFetchedRef.current = false
@@ -504,6 +513,7 @@ const ChatsPage = () => {
       setPrivateSending(false)
       if (res.success) {
         setPendingComposePeerId(null)
+        setPendingComposePeer(null)
         const d = (res.data ?? {}) as Record<string, unknown>
         const newConv =
           (typeof d.conversation_id === 'number' ? d.conversation_id : undefined) ??
@@ -738,6 +748,7 @@ const ChatsPage = () => {
                             }`}
                             onClick={() => {
                               setPendingComposePeerId(null)
+                              setPendingComposePeer(null)
                               setSelectedConvId(conv.conversation_id)
                             }}
                           >
@@ -792,6 +803,7 @@ const ChatsPage = () => {
                 onClick={() => {
                   setSelectedConvId(null)
                   setPendingComposePeerId(null)
+                  setPendingComposePeer(null)
                 }}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 sm:hidden"
                 aria-label="Back to conversations"
@@ -805,7 +817,7 @@ const ChatsPage = () => {
               {activeTab === 'GLOBAL'
                 ? `Global Chat${chatStatus.onlineCount > 0 ? ` · ${chatStatus.onlineCount} online` : ''}`
                 : pendingComposePeerId != null && !selectedConvId
-                  ? 'New message'
+                  ? pendingComposePeer?.username ?? 'New message'
                   : selectedConv
                     ? selectedConv.peer_username || 'Chat'
                     : 'Select a chat'}
@@ -882,9 +894,20 @@ const ChatsPage = () => {
               <>
                 {pendingComposePeerId != null && !selectedConvId ? (
                   <div className="flex flex-1 flex-col items-center justify-center px-4 py-8 text-center sm:py-10">
-                    <p className="max-w-sm type-body-sm leading-relaxed text-white/80">
-                      No chat with this player yet. Type your first message below — the thread opens after you send,
-                      same as starting any private chat on mobile.
+                    {pendingComposePeer?.avatarUrl ? (
+                      <ChatAvatar
+                        avatarUrl={pendingComposePeer.avatarUrl}
+                        alt={pendingComposePeer.username ?? 'Player'}
+                        size={72}
+                        variant="rounded"
+                        className="mb-4 shrink-0"
+                      />
+                    ) : null}
+                    <p className="max-w-sm type-body-sm font-semibold text-white">
+                      {pendingComposePeer?.username ?? 'This player'}
+                    </p>
+                    <p className="mt-2 max-w-sm type-body-sm leading-relaxed text-white/80">
+                      No chat yet. Send your first message below to start a private conversation.
                     </p>
                   </div>
                 ) : !selectedConvId ? (
@@ -931,11 +954,12 @@ const ChatsPage = () => {
                     <div className="truncate text-fluid-xs text-white/70">{replyingTo.message}</div>
                   </div>
                   <button
+                    type="button"
                     onClick={() => setReplyingTo(null)}
-                    className="p-2 -mr-1 text-white/70 hover:text-white touch-manipulation shrink-0"
+                    className="p-2 -mr-1 touch-manipulation shrink-0 transition hover:bg-white/10"
                     aria-label="Cancel reply"
                   >
-                    ✕
+                    <CloseIcon className="h-5 w-5" />
                   </button>
         </div>
               )}

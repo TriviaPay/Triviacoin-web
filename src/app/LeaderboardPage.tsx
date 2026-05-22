@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useAppDispatch, useAppSelector } from '../store/store'
 import { openChatWithPeerUserId, openModal, setLeaderboardTier, setReferralModalOpen, navigate } from '../store/uiSlice'
@@ -18,6 +18,7 @@ import { fetchSubscriptionPlans } from '../store/subscriptionsSlice'
 import { billableSubscriptionProductId } from '../utils/subscriptionTierPlan'
 import { getModeInfo, modeAllowsPlay } from '../utils/triviaTierMeta'
 import { startCheckout } from '../store/checkoutSlice'
+import CountryFlag from '../components/ui/CountryFlag'
 
 const fallbackAvatars = [boyImg, girlImg, boyImg, girlImg]
 
@@ -43,7 +44,7 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
   { key: 'silver', label: 'Scholar', icon: silverTabPng },
 ]
 
-  const LeaderboardPage = () => {
+const LeaderboardPage = () => {
   const dispatch = useAppDispatch()
   const tier = useAppSelector((s) => s.ui.leaderboardTier)
   const token = useAppSelector((s) => s.auth.token)
@@ -60,24 +61,37 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
   const slot = useAppSelector((s) => s.leaderboard.slots[tier])
   const loadingTier = useAppSelector((s) => s.leaderboard.loadingTier)
 
-  const [drawDate, setDrawDate] = useState<string>(() => new Date().toISOString().slice(0, 10))
+  const drawDate = useMemo(() => {
+    if (!nextDrawTime && !timerError) return null
+    return getDrawDateForWinners(nextDrawTime ?? undefined)
+  }, [nextDrawTime, timerError])
+
   const [joinModalOpen, setJoinModalOpen] = useState(false)
   const [profileRow, setProfileRow] = useState<LeaderboardRow | null>(null)
 
-  const entry = slot?.drawDate === drawDate ? slot : null
-  const rows = entry?.rows ?? []
-  const error = entry?.error ?? null
-  const loading = loadingTier === tier && entry == null
-
-  useEffect(() => {
-    if (nextDrawTime) setDrawDate(getDrawDateForWinners(nextDrawTime))
-  }, [nextDrawTime])
+  const entry = slot && drawDate && slot.drawDate === drawDate ? slot : null
+  const displaySlot = entry ?? slot
+  const rows = displaySlot?.rows ?? []
+  const error = entry?.error ?? (displaySlot?.drawDate === drawDate ? displaySlot?.error : null) ?? null
+  const loading = Boolean(drawDate && loadingTier === tier && rows.length === 0 && !error)
 
   useEffect(() => {
     if (!nextDrawTime && !timerError) {
       void dispatch(fetchNextDraw())
     }
   }, [dispatch, nextDrawTime, timerError])
+
+  useEffect(() => {
+    if (drawDate == null) return
+    void dispatch(
+      fetchLeaderboardData({
+        tier,
+        drawDate,
+        token,
+        isAuthenticated,
+      })
+    )
+  }, [dispatch, tier, drawDate, token, isAuthenticated])
 
   useEffect(() => {
     void dispatch(fetchSubscriptionPlans())
@@ -89,28 +103,21 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
     }
   }, [dispatch, isAuthenticated])
 
-  useEffect(() => {
-    void dispatch(
-      fetchLeaderboardData({
-        tier,
-        drawDate,
-        token,
-        isAuthenticated,
-      })
-    )
-  }, [dispatch, tier, drawDate, token, isAuthenticated])
-
-  const refetch = (force?: boolean) => {
-    void dispatch(
-      fetchLeaderboardData({
-        tier,
-        drawDate,
-        token,
-        isAuthenticated,
-        force,
-      })
-    )
-  }
+  const refetch = useCallback(
+    (force?: boolean) => {
+      if (drawDate == null) return
+      void dispatch(
+        fetchLeaderboardData({
+          tier,
+          drawDate,
+          token,
+          isAuthenticated,
+          force,
+        })
+      )
+    },
+    [dispatch, tier, drawDate, token, isAuthenticated]
+  )
 
   const handleOpenReferral = () => {
     setJoinModalOpen(false)
@@ -128,9 +135,16 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
     }
     if (!Number.isFinite(userId) || userId <= 0) return
     if (currentUserId != null && userId === currentUserId) return
+    const row = profileRow
     setProfileRow(null)
     queueMicrotask(() => {
-      dispatch(openChatWithPeerUserId(userId))
+      dispatch(
+        openChatWithPeerUserId({
+          userId,
+          username: row?.name,
+          avatarUrl: typeof row?.avatar === 'string' ? row.avatar : undefined,
+        })
+      )
     })
   }
 
@@ -167,7 +181,7 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
           <div className="flex items-center justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#ffd66b] border-t-transparent" />
           </div>
-        ) : error ? (
+        ) : error && rows.length === 0 ? (
           <div className="py-8 text-center text-white/80">
             <p>{error}</p>
             {!isAuthenticated && error.includes('unavailable') && (
@@ -205,13 +219,11 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
                   className={`flex cursor-pointer items-center justify-between rounded-2xl border border-white/10 bg-white/10 px-4 py-3 transition hover:bg-white/[0.14] active:scale-[0.99] ${
                     isTop ? 'shadow-[0_12px_24px_rgba(255,214,107,0.25)]' : ''
                   }`}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={false}
                   animate={{ opacity: 1, y: 0 }}
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 type-body-sm font-semibold tabular-nums">
-                      {idx + 1}
-                    </div>
+                    <CountryFlag country={row.country} size={28} title={row.country ?? undefined} />
                     <img
                       src={avatarSrc}
                       alt={row.name}

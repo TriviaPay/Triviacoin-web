@@ -34,9 +34,9 @@ import {
 } from '../../store/triviaSlice'
 import { fetchUserGems } from '../../store/shopSlice'
 import Button from '../ui/Button'
+import CloseIcon from '../ui/CloseIcon'
 import OptionButton from '../quiz/OptionButton'
 import type { OptionState } from '../quiz/OptionButton'
-import TriviaResultModal from './TriviaResultModal'
 import type { TriviaTierMeta } from '../../utils/triviaTierMeta'
 
 export type TriviaPlayMode = 'free' | 'bronze' | 'silver' | 'gold' | 'platinum'
@@ -108,7 +108,6 @@ export default function TriviaChallengePanel({
   embedOnHome = false,
   useHomeQuizLayout = false,
 }: Props) {
-  const modalOverlay = overlayPosition === 'panel' ? 'panel' : 'viewport'
   const homeQuizChrome =
     (embedOnHome && mode === 'free') ||
     Boolean(useHomeQuizLayout && (mode === 'free' || mode === 'bronze' || mode === 'silver'))
@@ -120,7 +119,6 @@ export default function TriviaChallengePanel({
   const [initialized, setInitialized] = useState(false)
   const [freeModeReviewMode, setFreeModeReviewMode] = useState(false)
   const [freeModeReviewIndex, setFreeModeReviewIndex] = useState(0)
-  const [showResultModal, setShowResultModal] = useState(false)
   const [timerSec, setTimerSec] = useState<number | null>(null)
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   /** True only when review mode was auto-opened before `freeQ` loaded (embed / home layout); cleared when play mode resumes or user opens review intentionally. */
@@ -155,8 +153,13 @@ export default function TriviaChallengePanel({
 
   const correctOptionId = useMemo(() => {
     if (!question) return null
-    return mapCorrectToId(question as FreeModeQuestion)
-  }, [question])
+    const q = question as FreeModeQuestion | BronzeSilverModeQuestion
+    const fromQuestion = mapCorrectToId(q)
+    if (fromQuestion) return fromQuestion
+    const ca = trivia.submissionResult?.correct_answer
+    if (ca) return mapRawToOptionId(q, ca)
+    return null
+  }, [question, trivia.submissionResult?.correct_answer])
 
   /** Server (or merged daily list) marks this MCQ answered — reveal correct/wrong only, no second submit. */
   const freeReplayLocked = useMemo(
@@ -401,14 +404,12 @@ export default function TriviaChallengePanel({
     if (mode === 'free' || !initialized) return
     if (alreadySubmitted && !showedPriorResultRef.current) {
       showedPriorResultRef.current = true
-      setShowResultModal(true)
     }
   }, [mode, initialized, alreadySubmitted])
 
   useEffect(() => {
     if (mode === 'free') return
     if (trivia.isSubmitted && trivia.submissionResult) {
-      setShowResultModal(true)
       void dispatch(fetchUserGems())
     }
   }, [mode, trivia.isSubmitted, trivia.submissionResult, dispatch])
@@ -570,8 +571,9 @@ export default function TriviaChallengePanel({
 
   const selectedId = userPickId ?? trivia.selectedAnswer
   const freeSubmitted = mode === 'free' && !freeModeReviewMode && trivia.isSubmitted
-  const bronzeSilverMarks =
+  const bronzeSilverAnswered =
     (mode === 'bronze' || mode === 'silver') && (trivia.isSubmitted || alreadySubmitted)
+  const bronzeSilverMarks = bronzeSilverAnswered
   const marksActive = freeSubmitted || bronzeSilverMarks || freeModeReviewMode || freeReplayLocked
 
   const onFreeReplayTouchStart = useCallback(
@@ -661,16 +663,18 @@ export default function TriviaChallengePanel({
 
   if (!auth.isAuthenticated && mode !== 'free') {
     return (
-      <div className={`relative rounded-3xl border border-white/15 bg-black/20 p-6 text-center text-white ${embedOnHome ? 'pt-6' : 'pt-12'}`}>
+      <div className={`relative rounded-3xl border border-white/15 bg-black/20 p-6 text-center text-white ${embedOnHome ? '' : 'space-y-4'}`}>
         {!embedOnHome ? (
-          <button
-            type="button"
-            onClick={onBack}
-            className="absolute right-3 top-3 rounded-full p-2 text-2xl leading-none text-white/80 hover:bg-white/10"
-            aria-label="Close"
-          >
-            ×
-          </button>
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex shrink-0 items-center justify-center rounded-full p-1.5 text-white/80 transition hover:bg-white/10"
+              aria-label="Close"
+            >
+              <CloseIcon className="h-6 w-6 sm:h-7 sm:w-7" />
+            </button>
+          </div>
         ) : null}
         <p className="text-sm sm:text-base">Sign in to play paid trivia modes.</p>
       </div>
@@ -683,21 +687,23 @@ export default function TriviaChallengePanel({
       <div
         className={
           overlayPosition === 'panel'
-            ? 'relative flex min-h-0 flex-1 flex-col space-y-4 pr-10 sm:pr-12'
+            ? 'relative flex min-h-0 flex-1 flex-col space-y-4'
             : embedOnHome
               ? 'relative space-y-4'
-              : 'relative mt-6 space-y-4 pr-10 sm:pr-12'
+              : 'relative mt-6 space-y-4'
         }
       >
         {!embedOnHome ? (
-          <button
-            type="button"
-            onClick={onBack}
-            className="absolute right-0 top-0 z-10 rounded-full p-2 text-2xl leading-none text-white/80 transition hover:bg-white/10 hover:text-white"
-            aria-label="Close"
-          >
-            ×
-          </button>
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex shrink-0 items-center justify-center rounded-full p-1.5 text-white/80 transition hover:bg-white/10"
+              aria-label="Close"
+            >
+              <CloseIcon className="h-6 w-6 sm:h-7 sm:w-7" />
+            </button>
+          </div>
         ) : null}
         <div className="rounded-3xl border border-white/15 bg-gradient-to-b from-white/10 to-transparent p-5 sm:p-6">
           <p className="text-xs uppercase tracking-wide text-white/60">{label}</p>
@@ -731,22 +737,12 @@ export default function TriviaChallengePanel({
     <div
       className={
         overlayPosition === 'panel'
-          ? 'relative flex min-h-0 flex-1 flex-col space-y-4 pr-10 sm:pr-12'
+          ? 'relative flex min-h-0 flex-1 flex-col space-y-4'
           : embedOnHome
-            ? 'relative space-y-4'
-            : 'relative mt-6 space-y-4 pr-10 sm:pr-12'
+            ? 'relative flex flex-col space-y-4'
+            : 'relative mt-6 space-y-4'
       }
     >
-      {!embedOnHome ? (
-        <button
-          type="button"
-          onClick={onBack}
-          className="absolute right-0 top-0 z-10 rounded-full p-2 text-2xl leading-none text-white/80 transition hover:bg-white/10 hover:text-white"
-          aria-label="Close"
-        >
-          ×
-        </button>
-      ) : null}
       {!embedOnHome ? (
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-white/90">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -761,7 +757,7 @@ export default function TriviaChallengePanel({
               </span>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-3">
             {progressLabel ? <span className="rounded-full border border-white/20 px-3 py-1">Progress: {progressLabel}</span> : null}
             {freeModeReviewMode && sortedFreeQuestions.length > 0 ? (
               <span className="rounded-full border border-white/20 px-3 py-1">
@@ -773,6 +769,14 @@ export default function TriviaChallengePanel({
                 Closes in {formatTime(timerSec)}
               </span>
             ) : null}
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex shrink-0 items-center justify-center rounded-full p-1.5 text-white/80 transition hover:bg-white/10"
+              aria-label="Close"
+            >
+              <CloseIcon className="h-6 w-6 sm:h-7 sm:w-7" />
+            </button>
           </div>
         </div>
       ) : null}
@@ -831,7 +835,7 @@ export default function TriviaChallengePanel({
           <section
             className={`relative mx-auto flex w-full max-w-full flex-col overflow-hidden bg-quiz-panel text-white sm:max-w-2xl ${
               embedOnHome
-                ? 'rounded-2xl border border-white/15 shadow-[0_16px_32px_rgba(0,0,0,0.28)] sm:rounded-3xl min-h-0'
+                ? 'flex h-auto w-full flex-col overflow-hidden rounded-2xl border border-white/15 shadow-[0_16px_32px_rgba(0,0,0,0.28)] sm:rounded-3xl lg:max-h-[calc(30rem+20px)]'
                 : `section-card rounded-3xl ${
                     useHomeQuizLayout ? 'max-h-none min-h-0' : 'min-h-[min(26rem,55vh)]'
                   }`
@@ -842,7 +846,7 @@ export default function TriviaChallengePanel({
               <div className="absolute bottom-6 right-10 h-28 w-28 rounded-full bg-[#5ad1ff]/20 blur-3xl" />
             </div>
 
-            <div className="relative flex min-h-0 flex-1 flex-col">
+            <div className={`relative flex flex-col ${embedOnHome ? '' : 'min-h-0 flex-1'}`}>
               <div
                 className={`shrink-0 rounded-t-2xl bg-gradient-to-b from-[#4a9eff]/30 to-transparent ${
                   homeQuizChrome ? 'px-3 py-1.5 sm:px-5 sm:py-2' : 'px-4 py-2 sm:px-6 sm:py-3'
@@ -887,7 +891,7 @@ export default function TriviaChallengePanel({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
                       transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-                      className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-10 sm:gap-5 sm:px-6 sm:py-14"
+                      className={`flex flex-col items-center justify-center gap-4 px-4 sm:gap-5 sm:px-6 ${embedOnHome ? 'flex-none py-6 sm:py-8' : 'flex-1 py-10 sm:py-14'}`}
                     >
                       <p
                         className={`text-center text-lg font-display font-bold sm:text-xl ${embedFreeLastCorrect ? 'text-[#22c55e]' : 'text-coral'}`}
@@ -906,15 +910,17 @@ export default function TriviaChallengePanel({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-                      className="flex min-h-0 flex-1 flex-col overflow-hidden pb-0 touch-pan-y"
+                      className={`flex flex-col overflow-hidden pb-0 touch-pan-y ${embedOnHome ? '' : 'min-h-0 flex-1'}`}
                       onTouchStart={onFreeReplayTouchStart}
                       onTouchEnd={onFreeReplayTouchEnd}
                     >
                       <div
                         className={
-                          homeQuizChrome
-                            ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
-                            : 'min-h-0 flex-1 overflow-y-auto scrollbar-overlay'
+                          embedOnHome
+                            ? 'flex flex-col overflow-y-auto scrollbar-overlay lg:max-h-[calc(30rem-5rem+20px)]'
+                            : homeQuizChrome
+                              ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
+                              : 'min-h-0 flex-1 overflow-y-auto scrollbar-overlay'
                         }
                       >
                         <div
@@ -1093,21 +1099,36 @@ export default function TriviaChallengePanel({
                             text={o.text}
                             state={embedOptionState(o.id)}
                             compact={homeQuizChrome}
-                            disabled={Boolean(
-                              trivia.loading || (selectedId && embedOptionState(o.id) === 'default'),
-                            )}
+                            disabled={Boolean(trivia.loading || bronzeSilverAnswered)}
                             onClick={() => handleBronzeSilverPick(o.id, o.text)}
                           />
                         ))}
                       </div>
                     </div>
-                    <p
-                      className={`shrink-0 border-t border-white/10 bg-[#0a3b89]/75 px-3 text-center text-white/65 ${
-                        homeQuizChrome ? 'py-1.5 text-[9px] sm:py-2 sm:text-[10px]' : 'py-2 text-[10px] sm:py-2.5 sm:text-xs'
-                      }`}
-                    >
-                      Tap an option to submit your answer for today.
-                    </p>
+                    {bronzeSilverAnswered ? (
+                      <div
+                        className={`shrink-0 border-t border-white/10 bg-[#0a3b89]/75 px-3 sm:px-6 ${homeQuizChrome ? 'py-1.5 sm:py-2' : 'py-2 sm:py-3'}`}
+                      >
+                        <Button
+                          onClick={onBack}
+                          className={`w-full rounded-full font-semibold ${
+                            homeQuizChrome
+                              ? 'px-5 py-2 text-xs sm:px-8 sm:py-2.5 sm:text-sm'
+                              : 'px-6 py-2.5 text-sm sm:px-10 sm:py-3 sm:text-base'
+                          }`}
+                        >
+                          Continue
+                        </Button>
+                      </div>
+                    ) : (
+                      <p
+                        className={`shrink-0 border-t border-white/10 bg-[#0a3b89]/75 px-3 text-center text-white/65 ${
+                          homeQuizChrome ? 'py-1.5 text-[9px] sm:py-2 sm:text-[10px]' : 'py-2 text-[10px] sm:py-2.5 sm:text-xs'
+                        }`}
+                      >
+                        Tap an option to submit your answer for today.
+                      </p>
+                    )}
                   </motion.div>
                 </AnimatePresence>
               )}
@@ -1174,7 +1195,7 @@ export default function TriviaChallengePanel({
                     <button
                       key={o.id}
                       type="button"
-                      disabled={alreadySubmitted || trivia.loading || freeModeReviewMode}
+                      disabled={bronzeSilverAnswered || trivia.loading || freeModeReviewMode}
                       className={optionClass(o.id)}
                       onClick={() => {
                         if (!freeModeReviewMode) handleBronzeSilverPick(o.id, o.text)
@@ -1185,6 +1206,13 @@ export default function TriviaChallengePanel({
                     </button>
                   ))}
                 </div>
+                {bronzeSilverAnswered ? (
+                  <div className="flex flex-col items-center gap-2 pt-2">
+                    <Button className="min-w-[200px] px-8 py-3 text-base font-semibold" onClick={onBack}>
+                      Continue
+                    </Button>
+                  </div>
+                ) : null}
               </>
             )}
 
@@ -1229,23 +1257,6 @@ export default function TriviaChallengePanel({
           {mode === 'free' && hasAttemptedAnyFree ? 'No more questions right now.' : 'No question available.'}
         </p>
       ) : null}
-
-      <TriviaResultModal
-        open={showResultModal && (mode === 'bronze' || mode === 'silver')}
-        isCorrect={
-          trivia.submissionResult?.is_correct ??
-          (status?.is_correct === true || (question as BronzeSilverModeQuestion | null)?.is_correct === true)
-        }
-        message={
-          trivia.submissionResult?.explanation ||
-          (question as BronzeSilverModeQuestion | null)?.explanation ||
-          (alreadySubmitted && !trivia.submissionResult ? 'Your answer for this round is already recorded.' : '')
-        }
-        overlay={modalOverlay}
-        onClose={() => {
-          setShowResultModal(false)
-        }}
-      />
     </div>
   )
 }

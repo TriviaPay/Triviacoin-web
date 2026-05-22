@@ -8,7 +8,30 @@ import { api, fetchWithAuth, hasNonEmptySessionInStorage } from '../api/axiosIns
 import { postGuestAdBonus, type GuestAdBonusResult } from '../lib/triviaApi'
 
 const BASE_URL = API_CONFIG.BASE_URL
-const AUTH_BASE_URL = ENV_CONFIG.AUTH_BASE_URL || BASE_URL
+
+function apiErrorMessage(raw: Record<string, unknown>, fallback: string): string {
+  const detail = raw.detail ?? raw.message ?? raw.error
+  if (typeof detail === 'string' && detail.trim()) return detail
+  return fallback
+}
+
+function unwrapApiData(raw: Record<string, unknown>): Record<string, unknown> {
+  if (raw.status === 'success' && raw.data && typeof raw.data === 'object' && !Array.isArray(raw.data)) {
+    return raw.data as Record<string, unknown>
+  }
+  if (raw.data && typeof raw.data === 'object' && !Array.isArray(raw.data)) {
+    return raw.data as Record<string, unknown>
+  }
+  return raw
+}
+
+function toProfileUploadFile(file: File | Blob, filename = 'profile.jpg'): File {
+  if (file instanceof File) {
+    if (file.type.startsWith('image/')) return file
+    return new File([file], filename, { type: 'image/jpeg', lastModified: file.lastModified })
+  }
+  return new File([file], filename, { type: file.type || 'image/jpeg' })
+}
 
 /** Deployments differ: unversioned vs /api/v1 — try alternates when the server returns 404. */
 const DAILY_LOGIN_PATHS = [
@@ -18,19 +41,23 @@ const DAILY_LOGIN_PATHS = [
   '/api/v1/trivia/daily-login',
 ] as const
 
-export async function backendLogin(
-  email: string,
-  password: string
-): Promise<{ success: boolean; token?: string; user?: { id: string; email: string; username: string }; error?: string }> {
+export type BackendLoginResult = {
+  success: boolean
+  token?: string
+  user?: { id: string; email: string; username: string }
+  error?: string
+  /** Server returned 403 — /dev/sign-in blocked for browser/web (curl may still work). */
+  envBlocked?: boolean
+}
+
+/** POST /dev/sign-in — same contract as mobile & OpenAPI curl (email + password, X-Dev-Secret). */
+export async function backendLogin(email: string, password: string): Promise<BackendLoginResult> {
   const normalizedEmail = email.trim().toLowerCase()
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
-    'User-Agent': 'TriviaPay-Web/1.0',
+    'X-Dev-Secret': ENV_CONFIG.DEV_SIGNIN_SECRET ?? 'TriviaPay',
     'X-App-Platform': 'web',
-  }
-  if (ENV_CONFIG.DEV_SIGNIN_SECRET) {
-    headers['X-Dev-Secret'] = ENV_CONFIG.DEV_SIGNIN_SECRET
   }
 
   const extractError = (data: Record<string, unknown>): string => {
@@ -46,63 +73,55 @@ export async function backendLogin(
     return String(msg)
   }
 
-  // Mobile-style: { email, password }, X-Dev-Secret for /dev/sign-in
-  const payloadEmail = { email: normalizedEmail, password }
-  const payloadLoginId = { loginId: normalizedEmail, password }
-  const endpoints: { path: string; payload: Record<string, string> }[] = [
-    { path: API_CONFIG.ENDPOINTS.LOGIN, payload: payloadEmail },
-    { path: API_CONFIG.ENDPOINTS.LOGIN_ALT, payload: payloadEmail },
-    { path: API_CONFIG.ENDPOINTS.LOGIN_DEV, payload: payloadEmail },
-    { path: API_CONFIG.ENDPOINTS.LOGIN_FALLBACK, payload: payloadLoginId },
-    { path: API_CONFIG.ENDPOINTS.LOGIN_V1, payload: payloadEmail },
-  ]
-
-  for (const { path, payload } of endpoints) {
-    try {
-      const res = await api.post(path, payload, {
-        baseURL: AUTH_BASE_URL,
+  try {
+    const res = await api.post(
+      API_CONFIG.ENDPOINTS.LOGIN,
+      { email: normalizedEmail, password },
+      {
+        baseURL: BASE_URL,
         meta: { skipAuthHeaders: true },
         headers,
-      })
-      const raw = (res.data && typeof res.data === 'object' ? res.data : {}) as Record<string, unknown>
-      const fullRaw = raw as Record<string, unknown>
-      const data = (fullRaw?.data ?? fullRaw) as Record<string, unknown>
-      if (res.status < 200 || res.status >= 300) {
-        const errStr = extractError(fullRaw)
-        if (errStr.toLowerCase().includes('not available') || errStr.toLowerCase().includes('this environment')) {
-          continue
-        }
-        if (res.status === 404) continue
-        return { success: false, error: errStr }
       }
-      const token = (data?.access_token ??
-        data?.sessionJwt ??
-        data?.session_token ??
-        data?.token ??
-        data?.jwt ??
-        fullRaw?.access_token ??
-        fullRaw?.sessionJwt ??
-        fullRaw?.token ??
-        fullRaw?.jwt) as string | undefined
-      const userData = (data?.user ?? fullRaw?.user ?? data) as Record<string, unknown> | undefined
-      const user = userData
-        ? {
-          id: String(userData.id ?? userData.user_id ?? userData.account_id ?? normalizedEmail),
+    )
+    const raw = (res.data && typeof res.data === 'object' ? res.data : {}) as Record<string, unknown>
+    const data = unwrapApiData(raw)
+
+    if (res.status < 200 || res.status >= 300) {
+      const errStr = extractError(raw)
+      const envBlocked =
+        res.status === 403 && /not available|this environment/i.test(errStr)
+      return { success: false, error: errStr, envBlocked }
+    }
+
+    const token = (data.access_token ??
+      data.sessionJwt ??
+      data.session_token ??
+      data.token ??
+      data.jwt ??
+      raw.access_token ??
+      raw.sessionJwt ??
+      raw.token ??
+      raw.jwt) as string | undefined
+
+    const userData = (data.user ?? raw.user ?? data) as Record<string, unknown> | undefined
+    const user = userData
+      ? {
+          id: String(userData.id ?? userData.user_id ?? userData.account_id ?? userData.descope_user_id ?? normalizedEmail),
           email: String(userData.email ?? normalizedEmail),
           username: String(userData.username ?? userData.name ?? ''),
         }
-        : {
+      : {
           id: normalizedEmail,
           email: normalizedEmail,
           username: '',
         }
-      if (!token) return { success: false, error: 'No token in response' }
-      return { success: true, token, user }
-    } catch (e) {
-      continue
-    }
+
+    if (!token) return { success: false, error: 'No token in response' }
+    return { success: true, token, user }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Network error'
+    return { success: false, error: msg }
   }
-  return { success: false, error: 'Invalid email or password' }
 }
 const TIMEOUT = ENV_CONFIG.API_TIMEOUT
 
@@ -186,27 +205,51 @@ export const apiService = {
   async fetchProfileSummary(token: string): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       const endpoints = [
+        API_CONFIG.ENDPOINTS.PROFILE_SUMMARY,
         API_CONFIG.ENDPOINTS.PROFILE_COMPLETE,
         API_CONFIG.ENDPOINTS.PROFILE,
-        API_CONFIG.ENDPOINTS.PROFILE_SUMMARY,
       ]
+      let lastError = 'Failed to load profile'
       for (const path of endpoints) {
-        try {
-          const res = await fetchWithAuth(`${BASE_URL}${path}`, { method: 'GET', token })
-          const raw = await res.json()
-          const data = raw?.data ?? raw
-          if (!res.ok) {
-            if (res.status === 404) continue
-            throw new Error(raw?.message || raw?.detail || 'Failed to load profile')
-          }
-          return { success: true, data: data ?? raw }
-        } catch {
-          continue
+        const res = await fetchWithAuth(`${BASE_URL}${path}`, { method: 'GET', token })
+        const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>
+        if (!res.ok) {
+          lastError = apiErrorMessage(raw, 'Failed to load profile')
+          if (res.status === 404 && path !== endpoints[endpoints.length - 1]) continue
+          return { success: false, error: lastError }
         }
+        return { success: true, data: unwrapApiData(raw) }
       }
-      throw new Error('Failed to load profile')
+      return { success: false, error: lastError }
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Failed to load profile' }
+    }
+  },
+
+  async uploadProfilePicture(
+    token: string,
+    file: File | Blob,
+    filename = 'profile.jpg'
+  ): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
+    try {
+      const uploadFile = toProfileUploadFile(file, filename)
+      const form = new FormData()
+      form.append('file', uploadFile, uploadFile.name)
+      const res = await fetchWithAuth(`${BASE_URL}${API_CONFIG.ENDPOINTS.PROFILE_UPLOAD_PIC}`, {
+        method: 'POST',
+        body: form,
+        token,
+      })
+      const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>
+      if (!res.ok) {
+        throw new Error(apiErrorMessage(raw, 'Failed to upload profile picture. Please try again.'))
+      }
+      return { success: true, data: unwrapApiData(raw) }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Failed to upload profile picture. Please try again.',
+      }
     }
   },
 
@@ -900,6 +943,23 @@ export const apiService = {
       return { platforms, ios, android }
     } catch {
       return null
+    }
+  },
+
+  async fetchWalletEarnings(token: string): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
+    try {
+      const res = await fetchWithAuth(`${BASE_URL}${API_CONFIG.ENDPOINTS.WALLET.EARNINGS}`, {
+        method: 'GET',
+        token,
+      })
+      const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>
+      if (!res.ok) {
+        throw new Error(apiErrorMessage(raw, 'Failed to load earnings'))
+      }
+      const data = unwrapApiData(raw)
+      return { success: true, data }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Failed to load earnings' }
     }
   },
 

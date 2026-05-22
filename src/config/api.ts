@@ -16,16 +16,12 @@ export const API_CONFIG = {
       PUSHER_AUTH: '/pusher/auth',
     },
     BIND_PASSWORD: '/bind-password',
-    // Mobile-style: try /dev/sign-in first (validates against bind-password DB)
-    // Backend OpenAPI lists /dev/sign-in; /auth/login and /login may exist per docs
+    /** Password sign-in — validates against bind-password DB (requires X-Dev-Secret). */
     LOGIN: '/dev/sign-in',
-    LOGIN_ALT: '/auth/login',
-    LOGIN_DEV: '/login',
-    LOGIN_FALLBACK: '/sign-in',
-    LOGIN_V1: '/api/v1/auth/login',
     VALIDATE_REFERRAL: '/validate-referral',
     COUNTRIES: '/countries',
     PROFILE_SUMMARY: '/profile/summary',
+    PROFILE_UPLOAD_PIC: '/profile/upload-profile-pic',
     PROFILE: '/profile',
     PROFILE_COMPLETE: '/profile/complete',
     PROFILE_EXTENDED_UPDATE: '/profile/extended-update',
@@ -84,6 +80,7 @@ export const API_CONFIG = {
     },
     WALLET: {
       ME: '/api/v1/wallet/me',
+      EARNINGS: '/api/v1/wallet/earnings',
       TRANSACTIONS: '/api/v1/wallet/transactions',
       WITHDRAW: '/api/v1/wallet/withdraw',
       WITHDRAWALS: '/api/v1/wallet/withdrawals',

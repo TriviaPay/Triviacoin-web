@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAppDispatch, useAppSelector } from '../store/store'
 import { navigate } from '../store/uiSlice'
 import { logout, patchUser, setUserProfileMedia } from '../store/authSlice'
+import { setUserBalances } from '../store/shopSlice'
 import { apiService } from '../services/apiService'
 import ProfileHeader from '../components/profile/ProfileHeader'
 import ProfilePicture from '../components/profile/ProfilePicture'
@@ -46,6 +47,53 @@ const formatDateForAPI = (dateString: string) => {
   }
 }
 
+function mapProfileSummary(
+  d: Record<string, unknown>,
+  fallbackEmail?: string
+): {
+  fullName: string
+  firstName: string
+  username: string
+  email: string
+  emailVerified: boolean
+  accountNumber: string
+  account_id: string
+  dob: string
+  gender: string
+  address: Address
+  profilePicture: string | null
+  avatarUrl: string | null
+} {
+  const fullName =
+    [d.first_name, d.last_name].filter(Boolean).join(' ') ||
+    String(d.full_name ?? d.username ?? '')
+  const media = resolveProfileDisplayMedia(d)
+  return {
+    fullName,
+    firstName: String(d.first_name ?? fullName.split(' ')[0] ?? ''),
+    username: String(d.username ?? ''),
+    email: String(d.email ?? fallbackEmail ?? ''),
+    emailVerified: Boolean(d.email_verified ?? false),
+    accountNumber: String(d.account_number ?? d.account_id ?? ''),
+    account_id: d.account_id != null ? String(d.account_id) : '',
+    dob: formatDateForDisplay(String(d.date_of_birth ?? '')),
+    gender: String(d.gender ?? ''),
+    address: {
+      street1: String((d.address as { street_1?: string } | undefined)?.street_1 ?? d.address1 ?? ''),
+      street2: String((d.address as { street_2?: string } | undefined)?.street_2 ?? d.address2 ?? ''),
+      aptNumber: String(
+        (d.address as { suite_or_apt_number?: string } | undefined)?.suite_or_apt_number ?? d.apt_number ?? ''
+      ),
+      city: String((d.address as { city?: string } | undefined)?.city ?? d.city ?? ''),
+      state: String((d.address as { state?: string } | undefined)?.state ?? d.state ?? ''),
+      country: String((d.address as { country?: string } | undefined)?.country ?? d.country ?? ''),
+      zipCode: String((d.address as { zip?: string } | undefined)?.zip ?? d.zip ?? ''),
+    },
+    profilePicture: media.profilePicUrl,
+    avatarUrl: media.avatarUrl,
+  }
+}
+
 const ProfilePage = () => {
   const dispatch = useAppDispatch()
   const { token, user, isAuthenticated } = useAppSelector((s) => s.auth)
@@ -80,6 +128,38 @@ const ProfilePage = () => {
     confirmPassword: '',
   })
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+
+  const applyProfileSummary = useCallback(
+    (d: Record<string, unknown>) => {
+      const media = resolveProfileDisplayMedia(d)
+      dispatch(setUserProfileMedia(media))
+      const apiUsername = typeof d.username === 'string' ? d.username.trim() : ''
+      dispatch(
+        patchUser({
+          ...(apiUsername ? { username: apiUsername } : {}),
+          ...(typeof d.email === 'string' ? { email: d.email } : {}),
+          subscription_badges: Array.isArray(d.subscription_badges) ? d.subscription_badges : undefined,
+          recent_draw_earnings:
+            typeof d.recent_draw_earnings === 'number' ? d.recent_draw_earnings : undefined,
+          ...(typeof d.date_of_birth === 'string' ? { date_of_birth: d.date_of_birth } : {}),
+          ...(typeof d.country === 'string' ? { country: d.country } : {}),
+        })
+      )
+      dispatch(
+        setUserBalances({
+          gems: typeof d.total_gems === 'number' ? d.total_gems : undefined,
+          tpcoins: typeof d.total_trivia_coins === 'number' ? d.total_trivia_coins : undefined,
+        })
+      )
+      const mapped = mapProfileSummary(d, user?.email)
+      setProfile(mapped)
+      setEditedProfile(mapped)
+      setProfileData(d)
+      return mapped
+    },
+    [dispatch, user?.email]
+  )
 
   const goBack = useCallback(() => {
     dispatch(navigate('home'))
@@ -92,41 +172,7 @@ const ProfilePage = () => {
         .fetchProfileSummary(token)
         .then((res) => {
           if (res.success && res.data) {
-            const d = res.data
-            const fullName =
-              [d.first_name, d.last_name].filter(Boolean).join(' ') ||
-              d.full_name ||
-              d.username ||
-              ''
-            const media = resolveProfileDisplayMedia(d as Record<string, unknown>)
-            dispatch(setUserProfileMedia(media))
-            const apiUsername = typeof d.username === 'string' ? d.username.trim() : ''
-            if (apiUsername) dispatch(patchUser({ username: apiUsername }))
-            const mapped = {
-              fullName,
-              firstName: d.first_name || fullName.split(' ')[0] || '',
-              username: d.username || '',
-              email: d.email || user?.email || '',
-              emailVerified: d.email_verified ?? false,
-              accountNumber: d.account_number || String(d.account_id || ''),
-              account_id: d.account_id,
-              dob: formatDateForDisplay(d.date_of_birth || ''),
-              gender: d.gender || '',
-              address: {
-                street1: d.address?.street_1 || d.address1 || '',
-                street2: d.address?.street_2 || d.address2 || '',
-                aptNumber: d.address?.suite_or_apt_number || d.apt_number || '',
-                city: d.address?.city || d.city || '',
-                state: d.address?.state || d.state || '',
-                country: d.address?.country || d.country || '',
-                zipCode: d.address?.zip || d.zip || '',
-              },
-              profilePicture: media.profilePicUrl,
-              avatarUrl: media.avatarUrl,
-            }
-            setProfile(mapped)
-            setEditedProfile(mapped)
-            setProfileData(d)
+            applyProfileSummary(res.data as Record<string, unknown>)
           } else {
             const fallback = {
               fullName: user?.username || '',
@@ -183,7 +229,7 @@ const ProfilePage = () => {
       setEditedProfile(profile)
       setLoading(false)
     }
-  }, [isAuthenticated, token, user?.email, user?.username, user?.profilePicUrl, user?.avatarUrl, dispatch])
+  }, [isAuthenticated, token, user?.email, user?.username, user?.profilePicUrl, user?.avatarUrl, applyProfileSummary])
 
   const handleLogout = () => setShowLogoutModal(true)
   const confirmLogout = () => {
@@ -242,41 +288,7 @@ const ProfilePage = () => {
         setTimeout(() => setStatusMessage(null), 3000)
         const refetch = await apiService.fetchProfileSummary(token)
         if (refetch.success && refetch.data) {
-          const d = refetch.data
-          const fullName =
-            [d.first_name, d.last_name].filter(Boolean).join(' ') ||
-            d.full_name ||
-            d.username ||
-            ''
-          const media = resolveProfileDisplayMedia(d as Record<string, unknown>)
-          dispatch(setUserProfileMedia(media))
-          const savedUsername = typeof d.username === 'string' ? d.username.trim() : ''
-          if (savedUsername) dispatch(patchUser({ username: savedUsername }))
-          const mapped = {
-            fullName,
-            firstName: typeof d.first_name === 'string' ? d.first_name : fullName.split(/\s+/)[0] || '',
-            username: d.username || '',
-            email: d.email || user?.email || '',
-            emailVerified: d.email_verified ?? false,
-            accountNumber: d.account_number || String(d.account_id || ''),
-            account_id: d.account_id,
-            dob: formatDateForDisplay(d.date_of_birth || ''),
-            gender: d.gender || '',
-            address: {
-              street1: d.address?.street_1 || d.address1 || '',
-              street2: d.address?.street_2 || d.address2 || '',
-              aptNumber: d.address?.suite_or_apt_number || d.apt_number || '',
-              city: d.address?.city || d.city || '',
-              state: d.address?.state || d.state || '',
-              country: d.address?.country || d.country || '',
-              zipCode: d.address?.zip || d.zip || '',
-            },
-            profilePicture: media.profilePicUrl,
-            avatarUrl: media.avatarUrl,
-          }
-          setProfile(mapped)
-          setEditedProfile(mapped)
-          setProfileData(d)
+          applyProfileSummary(refetch.data as Record<string, unknown>)
         }
       } else {
         setStatusMessage({ type: 'error', text: res.error || 'Failed to update profile' })
@@ -286,26 +298,74 @@ const ProfilePage = () => {
     } finally {
       setIsSaving(false)
     }
-  }, [token, editedProfile, user?.email, dispatch])
+  }, [token, editedProfile, applyProfileSummary])
 
   const handleChange = useCallback((field: string, value: any) => {
     setEditedProfile((prev) => ({ ...prev, [field]: value }))
   }, [])
 
   const handleSelectProfileImage = useCallback(
-    (url: string) => {
-      const media = resolveProfileDisplayMedia({
-        profile_pic_url: url,
-        profile_pic_type: 'custom',
-      } as Record<string, unknown>)
-      dispatch(setUserProfileMedia(media))
-      setEditedProfile((prev) => ({
-        ...prev,
-        profilePicture: media.profilePicUrl,
-        avatarUrl: media.avatarUrl,
-      }))
+    async (url: string, file?: File | Blob) => {
+      if (!token) return
+      setUploadingImage(true)
+      setStatusMessage(null)
+      try {
+        const isRemoteUrl = /^https?:\/\//i.test(url)
+        let uploadFile: File | Blob | null = file ?? null
+        if (!uploadFile && url.startsWith('blob:')) {
+          const blobRes = await fetch(url)
+          uploadFile = await blobRes.blob()
+        }
+
+        if (uploadFile) {
+          const uploadRes = await apiService.uploadProfilePicture(token, uploadFile)
+          if (!uploadRes.success) {
+            setStatusMessage({
+              type: 'error',
+              text: uploadRes.error || 'Failed to upload profile picture. Please try again.',
+            })
+            return
+          }
+        } else if (isRemoteUrl) {
+          const media = resolveProfileDisplayMedia({
+            profile_pic_url: url,
+            profile_pic_type: 'custom',
+          } as Record<string, unknown>)
+          dispatch(setUserProfileMedia(media))
+          setEditedProfile((prev) => ({
+            ...prev,
+            profilePicture: media.profilePicUrl,
+            avatarUrl: media.avatarUrl,
+          }))
+        } else {
+          setStatusMessage({ type: 'error', text: 'Could not read the selected image.' })
+          return
+        }
+
+        const refetch = await apiService.fetchProfileSummary(token)
+        if (refetch.success && refetch.data) {
+          applyProfileSummary(refetch.data as Record<string, unknown>)
+          setStatusMessage({ type: 'success', text: 'Profile picture updated!' })
+          setTimeout(() => setStatusMessage(null), 3000)
+        } else {
+          setStatusMessage({
+            type: 'error',
+            text: refetch.error || 'Photo saved but profile could not be refreshed.',
+          })
+        }
+      } catch (e) {
+        setStatusMessage({
+          type: 'error',
+          text: e instanceof Error ? e.message : 'Failed to upload profile picture. Please try again.',
+        })
+      } finally {
+        setUploadingImage(false)
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url)
+        }
+      }
     },
-    [dispatch],
+    [token, dispatch, applyProfileSummary]
   )
 
   const handleRemoveProfileImage = useCallback(() => {
@@ -372,7 +432,7 @@ const ProfilePage = () => {
               <>
                 <ProfilePicture
                   isEditing={isEditing}
-                  uploadingImage={false}
+                  uploadingImage={uploadingImage}
                   profilePicture={
                     isEditing
                       ? editedProfile.profilePicture ?? profile.profilePicture

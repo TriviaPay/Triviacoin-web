@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import Button from '../ui/Button'
 import triviaLogoPng from '../../assets/triviaLogo.png'
 import { useAppDispatch, useAppSelector } from '../../store/store'
-import { patchUser, setUserProfileMedia } from '../../store/authSlice'
+import { logout, patchUser, setUserProfileMedia } from '../../store/authSlice'
+import { useDescope } from '@descope/react-sdk'
 import { openModal, navigate } from '../../store/uiSlice'
 import type { Page } from '../../store/uiSlice'
 import { apiService } from '../../services/apiService'
@@ -12,6 +13,8 @@ import { resolveProfileDisplayMedia } from '../../utils/profileDisplayMedia'
 import ChatAvatar from '../chat/ChatAvatar'
 import { subscribe as subscribeNotifications, syncFromApi } from '../../services/notificationService'
 import { useOnboarding } from '../Onboarding/OnboardingContext'
+import LogoutConfirmModal from '../modals/LogoutConfirmModal'
+import CloseIcon from '../ui/CloseIcon'
 
 import gemPng from '../../assets/diamond.png'
 import tpcoinPng from '../../assets/Tpcoin.png'
@@ -33,14 +36,35 @@ const menuItems: { label: string; page: Page }[] = [
   { label: 'Settings', page: 'settings' },
 ]
 
+function LogoutIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+      />
+    </svg>
+  )
+}
+
 const Navbar = ({ onStart: _onStart }: Props) => {
   const { startTour } = useOnboarding()
+  const descope = useDescope()
   const dispatch = useAppDispatch()
   const current = useAppSelector((s) => s.ui.currentPage)
   const { isAuthenticated, token, user } = useAppSelector((s) => s.auth)
   const { gems, tpcoins } = useAppSelector((s) => s.shop.userBalance)
   const chatStatus = useAppSelector((s) => s.ui.chatStatus)
   const [open, setOpen] = useState(false)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   /** Token we have successfully refreshed navbar avatar media for (profile summary can lag). */
   const profileMediaOkForToken = useRef<string | null>(null)
   /** Avoid repeating notification sync on every render/navigation; drawer open still syncs separately. */
@@ -127,6 +151,24 @@ const Navbar = ({ onStart: _onStart }: Props) => {
     }
   }, [isAuthenticated, token, dispatch, current])
 
+  const performLogout = async () => {
+    setLogoutConfirmOpen(false)
+    setOpen(false)
+    try {
+      if ((descope as { logout?: () => Promise<unknown> })?.logout) {
+        try {
+          await (descope as { logout: () => Promise<unknown> }).logout()
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    dispatch(logout())
+    dispatch(navigate('home'))
+  }
+
   useEffect(() => {
     if (!open) return
     const prev = document.body.style.overflow
@@ -198,6 +240,20 @@ const Navbar = ({ onStart: _onStart }: Props) => {
               <motion.button
                 type="button"
                 whileHover={{ y: -2, scale: 1.03 }}
+                whileTap={{ scale: 0.96 }}
+                className="flex items-center justify-center p-2 text-white/90 transition hover:text-[#ffd66b]"
+                onClick={() => setLogoutConfirmOpen(true)}
+                aria-label="Log out"
+                title="Log out"
+              >
+                <LogoutIcon className="h-6 w-6" />
+              </motion.button>
+            ) : null}
+
+            {isAuthenticated ? (
+              <motion.button
+                type="button"
+                whileHover={{ y: -2, scale: 1.03 }}
                 className="flex items-center justify-center rounded-full p-1.5 bg-white/10 text-white border border-white/20 shadow-lg"
                 onClick={() => dispatch(navigate('profile'))}
                 aria-label="Open profile"
@@ -236,6 +292,17 @@ const Navbar = ({ onStart: _onStart }: Props) => {
                 </div>
               </div>
             ) : null}
+            {isAuthenticated ? (
+              <button
+                type="button"
+                className="touch-target flex items-center justify-center p-2 text-white/90 hover:text-[#ffd66b]"
+                onClick={() => setLogoutConfirmOpen(true)}
+                aria-label="Log out"
+                title="Log out"
+              >
+                <LogoutIcon className="h-6 w-6" />
+              </button>
+            ) : null}
             <button
               className="touch-target rounded-lg text-white"
               aria-label="Toggle menu"
@@ -265,8 +332,13 @@ const Navbar = ({ onStart: _onStart }: Props) => {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
             >
-            <button className="touch-target self-end rounded-lg text-white text-fluid-xl" onClick={() => setOpen(false)}>
-              ✕
+            <button
+              type="button"
+              className="touch-target self-end rounded-lg p-1.5 transition hover:bg-white/10"
+              onClick={() => setOpen(false)}
+              aria-label="Close menu"
+            >
+              <CloseIcon className="h-7 w-7" />
             </button>
             <button
               type="button"
@@ -299,22 +371,35 @@ const Navbar = ({ onStart: _onStart }: Props) => {
               )
             })}
             {isAuthenticated ? (
-              <button
-                type="button"
-                onClick={() => { dispatch(navigate('profile')); setOpen(false); }}
-                className="w-full flex items-center justify-center rounded-xl px-4 py-3 font-semibold bg-white/15 text-white"
-                aria-label="Open profile"
-                title="Profile"
-              >
-                <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 ring-white/25">
-                  <ChatAvatar
-                    avatarUrl={user?.avatarUrl ?? null}
-                    profilePic={user?.profilePicUrl ?? null}
-                    alt={user?.username || user?.email || 'Profile'}
-                    size={40}
-                  />
-                </span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false)
+                    setLogoutConfirmOpen(true)
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-3 font-semibold text-white"
+                >
+                  <LogoutIcon className="h-5 w-5" />
+                  Log out
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { dispatch(navigate('profile')); setOpen(false); }}
+                  className="w-full flex items-center justify-center rounded-xl px-4 py-3 font-semibold bg-white/15 text-white"
+                  aria-label="Open profile"
+                  title="Profile"
+                >
+                  <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 ring-white/25">
+                    <ChatAvatar
+                      avatarUrl={user?.avatarUrl ?? null}
+                      profilePic={user?.profilePicUrl ?? null}
+                      alt={user?.username || user?.email || 'Profile'}
+                      size={40}
+                    />
+                  </span>
+                </button>
+              </>
             ) : (
               <Button variant="primary" className="w-full" onClick={() => dispatch(openModal('signin'))}>
                 Sign In
@@ -324,6 +409,12 @@ const Navbar = ({ onStart: _onStart }: Props) => {
           </>
         )}
       </AnimatePresence>
+
+      <LogoutConfirmModal
+        open={logoutConfirmOpen}
+        onCancel={() => setLogoutConfirmOpen(false)}
+        onConfirm={() => void performLogout()}
+      />
 
     </header>
   )

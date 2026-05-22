@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from '../../store/store'
 import { setSupportModalOpen } from '../../store/uiSlice'
 import Button from '../ui/Button'
 import clsx from 'clsx'
+import CloseIcon from '../ui/CloseIcon'
 
 const SupportModal = () => {
   const dispatch = useAppDispatch()
@@ -129,14 +130,6 @@ const SupportModal = () => {
         </div>
       </div>
     </div>
-  )
-}
-
-function CloseIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-    </svg>
   )
 }
 

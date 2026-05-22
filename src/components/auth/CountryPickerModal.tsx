@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import clsx from 'clsx'
 import { fetchCountries as fetchCountriesAction } from '../../store/countrySlice'
+import CloseIcon from '../ui/CloseIcon'
 
 type Props = {
   open: boolean
@@ -34,11 +35,12 @@ const CountryPickerModal: React.FC<Props> = ({ open, selected, onSelect, onClose
         <div className="flex items-center justify-between border-b border-white/15 px-5 py-4">
           <h2 className="text-lg font-semibold">Select Country</h2>
           <button
+            type="button"
             aria-label="Close country picker"
-            className="rounded-full bg-white/10 px-3 py-1 text-sm hover:bg-white/20"
+            className="rounded-full bg-white/10 p-2 hover:bg-white/20"
             onClick={onClose}
           >
-            ✕
+            <CloseIcon className="h-5 w-5" />
           </button>
         </div>
 
@@ -54,10 +56,11 @@ const CountryPickerModal: React.FC<Props> = ({ open, selected, onSelect, onClose
             {search && (
               <button
                 type="button"
-                className="text-white/70 hover:text-white"
+                className="p-0.5 text-white/70 transition hover:text-white"
                 onClick={() => setSearch('')}
+                aria-label="Clear search"
               >
-                ✕
+                <CloseIcon className="h-4 w-4" />
               </button>
             )}
           </div>

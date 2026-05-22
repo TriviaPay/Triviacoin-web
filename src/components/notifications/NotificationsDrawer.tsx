@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { AppNotification } from '../../services/notificationService'
+import CloseIcon from '../ui/CloseIcon'
 import {
   clearAll,
   markAllAsRead,
@@ -120,9 +121,7 @@ export default function NotificationsDrawer({ open, onClose, token, isDark = tru
                 className="rounded-full p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
                 aria-label="Close"
               >
-                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                </svg>
+                <CloseIcon className="h-6 w-6" />
               </button>
             </div>
 
