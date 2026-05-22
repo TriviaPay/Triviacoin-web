@@ -147,10 +147,16 @@ export async function fetchWithAuth(url: string, options: FetchWithAuthCompatOpt
   }
 
   let data: unknown = undefined
-  if (body != null && body !== '' && typeof body === 'string') {
-    try {
-      data = JSON.parse(body)
-    } catch {
+  if (body != null && body !== '') {
+    if (typeof FormData !== 'undefined' && body instanceof FormData) {
+      data = body
+    } else if (typeof body === 'string') {
+      try {
+        data = JSON.parse(body)
+      } catch {
+        data = body
+      }
+    } else {
       data = body
     }
   }
@@ -225,6 +231,10 @@ api.interceptors.request.use((config) => {
   }
 
   if (!h.has('Accept')) h.set('Accept', 'application/json')
+
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    h.delete('Content-Type')
+  }
 
   config.meta = meta
 

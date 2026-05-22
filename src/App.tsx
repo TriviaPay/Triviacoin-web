@@ -62,12 +62,6 @@ const App = () => {
       <FloatingIcons />
       <BackgroundAudio />
       <Navbar />
-      <AuthModal />
-      <ReferralModal
-        visible={useAppSelector((s) => s.ui.referralModalOpen)}
-        onClose={() => dispatch(setReferralModalOpen(false))}
-      />
-      <SupportModal />
 
       <main className="relative z-10 w-full min-w-0 px-3 pb-4 pt-20 sm:px-6 sm:pb-8 sm:pt-24 lg:px-8">
         <div className="mx-auto w-full min-w-0 max-w-screen-2xl space-y-4 sm:space-y-6 text-safe">
@@ -108,6 +102,12 @@ const App = () => {
       </main>
       <Footer />
       <AdSenseBottomBar />
+      <AuthModal />
+      <ReferralModal
+        visible={useAppSelector((s) => s.ui.referralModalOpen)}
+        onClose={() => dispatch(setReferralModalOpen(false))}
+      />
+      <SupportModal />
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import Button from '../ui/Button'
+import CloseIcon from '../ui/CloseIcon'
 
 type Props = {
   open: boolean
@@ -27,10 +28,10 @@ export default function TriviaResultModal({ open, isCorrect, title, message, onC
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full p-2.5 text-2xl leading-none text-white/90 transition hover:bg-white/10"
+          className="rounded-full p-2.5 transition hover:bg-white/10"
           aria-label="Close"
         >
-          ×
+          <CloseIcon className="h-7 w-7" />
         </button>
       </div>
 

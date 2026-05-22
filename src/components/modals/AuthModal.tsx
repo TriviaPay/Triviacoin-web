@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDescope } from '@descope/react-sdk'
 import { useAppDispatch, useAppSelector } from '../../store/store'
@@ -17,6 +17,13 @@ import DatePickerModal from '../auth/DatePickerModal'
 import PasswordChecklist, { passwordIsValid } from '../auth/PasswordChecklist'
 import OtpInput from '../auth/OtpInput'
 import ExistingUserPopup from '../auth/ExistingUserPopup'
+import CloseIcon from '../ui/CloseIcon'
+import {
+  applyEmailDomainHint,
+  clearAuthFormDraft,
+  loadAuthFormDraft,
+  saveAuthFormDraft,
+} from '../../lib/authFormDraft'
 
 const fieldClasses = 'input-field text-safe'
 
@@ -66,7 +73,8 @@ const AuthModal = () => {
   const descopeReady = !!descope
 
   const updateField = useCallback((key: string, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }))
+    const nextValue = key === 'email' ? applyEmailDomainHint(value) : value
+    setForm((prev) => ({ ...prev, [key]: nextValue }))
     setErrors((prev) => ({ ...prev, [key]: '' }))
     if (key === 'username') setUsernameAvailable(null)
     if (key === 'referral') setReferralValid(null)
@@ -74,17 +82,51 @@ const AuthModal = () => {
   }, [isSignup])
 
   const [forgotStep, setForgotStep] = useState<typeof FORGOT_STEPS[keyof typeof FORGOT_STEPS]>(FORGOT_STEPS.EMAIL)
+  const modalWasOpen = useRef(false)
 
+  /** Restore draft once when opening; save when closing (keep filled fields). */
   useEffect(() => {
-    if (!modalOpen) {
-      setSignupStep(AUTH_STEPS.EMAIL)
-      setForgotStep(FORGOT_STEPS.EMAIL)
-      setSessionToken(null)
-      setSessionDescopeUserId(null)
+    if (modalOpen && !modalWasOpen.current) {
+      const draft = loadAuthFormDraft()
+      if (draft) {
+        setForm(draft.form)
+        if (draft.authMode === 'signup' || draft.authMode === 'forgot' || draft.authMode === 'signin') {
+          dispatch(setAuthMode(draft.authMode))
+        }
+        if (
+          draft.signupStep === AUTH_STEPS.EMAIL ||
+          draft.signupStep === AUTH_STEPS.OTP ||
+          draft.signupStep === AUTH_STEPS.PASSWORD_PROFILE
+        ) {
+          setSignupStep(draft.signupStep)
+        }
+        if (
+          draft.forgotStep === FORGOT_STEPS.EMAIL ||
+          draft.forgotStep === FORGOT_STEPS.OTP ||
+          draft.forgotStep === FORGOT_STEPS.PASSWORD
+        ) {
+          setForgotStep(draft.forgotStep)
+        }
+        setSessionToken(draft.sessionToken)
+        setSessionDescopeUserId(draft.sessionDescopeUserId)
+      }
+    }
+
+    if (!modalOpen && modalWasOpen.current) {
+      saveAuthFormDraft({
+        form,
+        authMode,
+        signupStep,
+        forgotStep,
+        sessionToken,
+        sessionDescopeUserId,
+      })
       setShowPassword(false)
       setShowConfirmPassword(false)
     }
-  }, [modalOpen])
+
+    modalWasOpen.current = modalOpen
+  }, [modalOpen, form, authMode, signupStep, forgotStep, sessionToken, sessionDescopeUserId, dispatch])
 
   useEffect(() => {
     let t: ReturnType<typeof setInterval> | null = null
@@ -221,6 +263,7 @@ const AuthModal = () => {
           descope_user_id: sessionDescopeUserId ?? undefined,
         }) as any
       ).unwrap()
+      clearAuthFormDraft()
       dispatch(closeModal())
     } catch (e: any) {
       setStatus(e?.message || 'Signup failed')
@@ -239,6 +282,7 @@ const AuthModal = () => {
           descopeInstance: descope ?? null,
         }) as any
       ).unwrap()
+      clearAuthFormDraft()
       dispatch(closeModal())
     } catch (e: any) {
       setStatus(e?.message || 'Invalid email or password')
@@ -353,6 +397,7 @@ const AuthModal = () => {
           descope_user_id: sessionDescopeUserId ?? undefined,
         }) as any
       ).unwrap()
+      clearAuthFormDraft()
       dispatch(closeModal())
     } catch (e: any) {
       setStatus(e?.message || 'Failed to reset password')
@@ -437,7 +482,7 @@ const AuthModal = () => {
     <AnimatePresence>
       {modalOpen && (
         <motion.div
-          className="fixed inset-0 z-40 flex overflow-y-auto bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-[150] isolate flex overflow-y-auto bg-black/40 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -455,8 +500,13 @@ const AuthModal = () => {
               <h3 className="type-modal-title text-safe">
                 {isForgot ? 'Forgot Password' : isSignup ? 'Sign Up' : 'Sign In'}
               </h3>
-              <button onClick={() => dispatch(closeModal())} className="text-white/70 hover:text-white">
-                ✕
+              <button
+                type="button"
+                onClick={() => dispatch(closeModal())}
+                className="rounded-full p-1.5 transition hover:bg-white/10"
+                aria-label="Close"
+              >
+                <CloseIcon className="h-6 w-6 sm:h-7 sm:w-7" />
               </button>
             </div>
 
@@ -481,20 +531,18 @@ const AuthModal = () => {
             )}
 
             <div
-              className={
-                [
-                  'mt-4 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain pr-2',
-                  '[scrollbar-width:thin]',
-                  '[scrollbar-color:rgba(255,215,107,0.55)_rgba(255,255,255,0.12)]',
-                  '[&::-webkit-scrollbar]:w-2',
-                  '[&::-webkit-scrollbar-thumb]:rounded-full',
-                  '[&::-webkit-scrollbar-thumb]:bg-[rgba(255,215,107,0.55)]',
-                  '[&::-webkit-scrollbar-track]:rounded-full',
-                  '[&::-webkit-scrollbar-track]:bg-white/10',
-                ].join(' ')
-              }
+              className={[
+                'mt-4 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain pr-1 pb-2',
+                '[scrollbar-width:thin]',
+                '[scrollbar-color:rgba(255,215,107,0.55)_rgba(255,255,255,0.12)]',
+                '[&::-webkit-scrollbar]:w-2',
+                '[&::-webkit-scrollbar-thumb]:rounded-full',
+                '[&::-webkit-scrollbar-thumb]:bg-[rgba(255,215,107,0.55)]',
+                '[&::-webkit-scrollbar-track]:rounded-full',
+                '[&::-webkit-scrollbar-track]:bg-white/10',
+              ].join(' ')}
             >
-            <div className="space-y-4">
+            <div className="space-y-4 pb-2">
               {isForgot ? (
                 <>
                   {forgotStep === FORGOT_STEPS.EMAIL && (
@@ -698,8 +746,9 @@ const AuthModal = () => {
                 </>
               )}
             </div>
+            </div>
 
-            <div className="mt-5 space-y-3">
+            <div className="mt-4 shrink-0 space-y-3 border-t border-white/10 pt-4 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
               {isSignup && signupStep === AUTH_STEPS.PASSWORD_PROFILE && (
                 <>
                   {auth.isLoading && (
@@ -731,7 +780,6 @@ const AuthModal = () => {
               )}
 
               {status ? <p className="text-xs text-amber-200">{status}</p> : null}
-            </div>
             </div>
 
             <CountryPickerModal

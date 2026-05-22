@@ -1,18 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/store'
 import { navigate, openChatWithPeerUserId, openModal } from '../../store/uiSlice'
-import { apiService } from '../../services/apiService'
+import { fetchRecentWinners } from '../../store/recentWinnersSlice'
 import ChatAvatar from '../chat/ChatAvatar'
+import CountryFlag from '../ui/CountryFlag'
+import WinningsModal from '../modals/WinningsModal'
 import tpcoinPng from '../../assets/Tpcoin.png'
-
-export type HomeWinner = {
-  id: string
-  name: string
-  image: string
-  prize: string
-  timestamp: number
-  userId: number | null
-}
 
 function formatRelative(ts: number): string {
   if (!ts) return ''
@@ -25,98 +18,18 @@ function formatRelative(ts: number): string {
   return `${Math.floor(days / 7)} weeks ago`
 }
 
-const CACHE_KEY = 'trivia_recent_winners_v1'
-const CACHE_MS = 5 * 60 * 1000
-
 export default function WinnersCarousel() {
   const dispatch = useAppDispatch()
   const token = useAppSelector((s) => s.auth.token)
   const user = useAppSelector((s) => s.auth.user)
-  const [winners, setWinners] = useState<HomeWinner[]>([])
+  const winners = useAppSelector((s) => s.recentWinners.winners)
+  const loading = useAppSelector((s) => s.recentWinners.loading)
   const [slide, setSlide] = useState(0)
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    try {
-      const raw = sessionStorage.getItem(CACHE_KEY)
-      if (raw) {
-        const { t, list } = JSON.parse(raw) as { t: number; list: HomeWinner[] }
-        if (Array.isArray(list) && Date.now() - t < CACHE_MS) {
-          setWinners(list)
-          setLoading(false)
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-
-    setLoading(true)
-    // Guests: `null` → fetchWithAuth sends X-Device-UUID only (backend allows this route).
-    const res = await apiService.getRecentWinners(token ?? null)
-    if (!res.success || !res.data) {
-      setLoading(false)
-      if (!sessionStorage.getItem(CACHE_KEY)) setWinners([])
-      return
-    }
-    const d = res.data as Record<string, unknown>
-    const rawList = (Array.isArray(d.winners) ? d.winners : Array.isArray(d) ? d : null) as Record<
-      string,
-      unknown
-    >[] | null
-    const mapped: HomeWinner[] = (rawList ?? []).map((w, i) => {
-      const username = String(w.username ?? w.name ?? 'Player')
-      const amount =
-        typeof w.money_awarded === 'number'
-          ? w.money_awarded
-          : typeof w.amount_won === 'number'
-            ? w.amount_won
-            : Number(w.amount ?? w.prize ?? 0)
-      const uidRaw = w.user_id ?? w.userid ?? w.account_id
-      const userId =
-        typeof uidRaw === 'number' && Number.isFinite(uidRaw)
-          ? uidRaw
-          : typeof uidRaw === 'string' && /^\d+$/.test(uidRaw)
-            ? Number(uidRaw)
-            : null
-      const id = String(w.id ?? userId ?? i)
-      const submitted =
-        String(w.submitted_at ?? w.date ?? w.created_at ?? w.draw_date ?? '') || new Date().toISOString()
-      const pType = String(w.profile_pic_type ?? '')
-      const profilePic =
-        (w.profile_pic_url as string | null) ||
-        (w.profile_pic as string | null) ||
-        (w.profilePic as string | null) ||
-        null
-      const avUrl = (w.avatar_url as string | null) || null
-      let image: string
-      if (pType === 'custom' && profilePic) image = profilePic
-      else if (pType === 'avatar' && avUrl) image = avUrl
-      else image = profilePic || avUrl || ''
-      if (!image) {
-        image = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=7c3aed&color=fff&size=128`
-      }
-      return {
-        id,
-        name: username,
-        image,
-        prize: (typeof amount === 'number' && !isNaN(amount) ? amount : 0).toFixed(2),
-        timestamp: new Date(submitted).getTime(),
-        userId,
-      }
-    })
-    setWinners(mapped)
-    setLoading(false)
-    setSlide(0)
-    try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), list: mapped }))
-    } catch {
-      /* ignore */
-    }
-  }, [token])
+  const [winningsModalOpen, setWinningsModalOpen] = useState(false)
 
   useEffect(() => {
-    void load()
-  }, [load])
+    void dispatch(fetchRecentWinners({ token: token ?? null }))
+  }, [dispatch, token])
 
   useEffect(() => {
     if (winners.length <= 1) return
@@ -133,13 +46,27 @@ export default function WinnersCarousel() {
     return Array.from({ length: n }, (_, i) => i === slide % n)
   }, [winners.length, slide])
 
-  const onWinnerClick = (w: HomeWinner) => {
+  const openWinningsModal = () => {
+    if (!token) {
+      dispatch(openModal('signin'))
+      return
+    }
+    setWinningsModalOpen(true)
+  }
+
+  const onWinnerClick = (w: (typeof winners)[number]) => {
     if (!token) {
       dispatch(openModal('signin'))
       return
     }
     if (w.userId != null && w.userId > 0) {
-      dispatch(openChatWithPeerUserId(w.userId))
+      dispatch(
+        openChatWithPeerUserId({
+          userId: w.userId,
+          username: w.name,
+          avatarUrl: w.image,
+        })
+      )
     }
   }
 
@@ -177,7 +104,7 @@ export default function WinnersCarousel() {
           </h3>
           <button
             type="button"
-            onClick={() => dispatch(navigate('leaderboard'))}
+            onClick={openWinningsModal}
             className="text-xs font-semibold text-white/80 underline decoration-[#ffd66b]/60 underline-offset-2 hover:text-white"
           >
             View all
@@ -225,13 +152,18 @@ export default function WinnersCarousel() {
               className="flex w-full justify-center p-6 transition hover:bg-white/[0.04]"
             >
               <div className="flex max-w-md flex-row items-center gap-3 text-center sm:gap-4 sm:text-left">
-                <ChatAvatar
-                  avatarUrl={current.image}
-                  alt={current.name}
-                  size={64}
-                  variant="rounded"
-                  className="shrink-0 shadow-none ring-0"
-                />
+                <div className="relative shrink-0">
+                  <ChatAvatar
+                    avatarUrl={current.image}
+                    alt={current.name}
+                    size={64}
+                    variant="rounded"
+                    className="shadow-none ring-0"
+                  />
+                  <div className="absolute -bottom-1 -right-1 shadow-md">
+                    <CountryFlag country={current.country} size={16} title={current.country ?? undefined} />
+                  </div>
+                </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-display text-base font-semibold text-white sm:text-lg">{current.name}</p>
                   <p className="text-xs text-white/65 sm:text-sm">{formatRelative(current.timestamp)}</p>
@@ -258,6 +190,8 @@ export default function WinnersCarousel() {
           <div className="pb-4" />
         )}
       </div>
+
+      <WinningsModal visible={winningsModalOpen} onClose={() => setWinningsModalOpen(false)} />
     </div>
   )
 }

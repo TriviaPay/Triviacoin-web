@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import { authService } from '../services/authService'
-import { apiService } from '../services/apiService'
+import { apiService, backendLogin } from '../services/apiService'
 import type { DescopeSdk } from '../services/authService'
 import { getDescopeUserIdFromJwt, getEmailFromJwt } from '../lib/jwt'
 
@@ -132,46 +132,77 @@ export const loginWithPassword = createAsyncThunk(
       password,
       descope,
       descopeInstance,
-    }: { identifier: string; password: string; descope?: DescopeSdk | null; descopeInstance?: DescopeSdk | null },
+    }: {
+      identifier: string
+      password: string
+      descope?: DescopeSdk | null
+      descopeInstance?: DescopeSdk | null
+    },
     { rejectWithValue }
   ) => {
     const rawIdentifier = identifier.trim()
     const email = rawIdentifier.toLowerCase()
-    const sdk = descope ?? descopeInstance ?? null
 
-    if (!sdk) return rejectWithValue('Auth not ready. Please wait.')
-
-    // Use Descope SDK only (descopeAuthService pattern - no backend endpoint calls)
-    const tries = rawIdentifier !== email ? [email, rawIdentifier] : [email]
-    let lastError = 'Invalid email or password'
-    for (const loginId of tries) {
-      const result = await authService.loginWithPassword(sdk, loginId, password)
-      if (result.success && result.token) {
-        const descopeUserId = result.user?.userId
-        if (!descopeUserId) {
-          return rejectWithValue('Login succeeded but no user ID. Please try again.')
-        }
-
-        const media = { avatarUrl: null as string | null, profilePicUrl: null as string | null }
-        const user = {
+    /** 1) bind-password users — POST /dev/sign-in */
+    const backend = await backendLogin(email, password)
+    if (backend.success && backend.token) {
+      const descopeUserId = getDescopeUserIdFromJwt(backend.token) ?? backend.user?.id
+      if (!descopeUserId) {
+        return rejectWithValue('Login succeeded but no user ID. Please try again.')
+      }
+      return {
+        success: true,
+        user: {
           id: descopeUserId,
           descope_user_id: descopeUserId,
-          email: result.user?.email ?? email,
-          username: result.user?.name ?? '',
-          avatarUrl: media.avatarUrl,
-          profilePicUrl: media.profilePicUrl,
-        }
-
-        return {
-          success: true,
-          user,
-          token: result.token,
-          refreshToken: result.refreshToken,
-        }
+          email: backend.user?.email ?? getEmailFromJwt(backend.token) ?? email,
+          username: backend.user?.username ?? '',
+          avatarUrl: null,
+          profilePicUrl: null,
+        },
+        token: backend.token,
+        refreshToken: undefined as string | undefined,
       }
-      if (result.error) lastError = result.error
     }
-    return rejectWithValue(lastError)
+
+    /** 2) Descope password (api.descope.com/v1/auth/password/signin) — web + legacy accounts */
+    const sdk = descope ?? descopeInstance ?? null
+    if (sdk) {
+      const tries = rawIdentifier !== email ? [email, rawIdentifier] : [email]
+      let lastError = backend.error || 'Invalid email or password'
+      for (const loginId of tries) {
+        const result = await authService.loginWithPassword(sdk, loginId, password)
+        if (result.success && result.token) {
+          const descopeUserId = result.user?.userId ?? getDescopeUserIdFromJwt(result.token)
+          if (!descopeUserId) {
+            return rejectWithValue('Login succeeded but no user ID. Please try again.')
+          }
+          return {
+            success: true,
+            user: {
+              id: descopeUserId,
+              descope_user_id: descopeUserId,
+              email: result.user?.email ?? getEmailFromJwt(result.token) ?? email,
+              username: result.user?.name ?? '',
+              avatarUrl: null,
+              profilePicUrl: null,
+            },
+            token: result.token,
+            refreshToken: result.refreshToken,
+          }
+        }
+        if (result.error) lastError = result.error
+      }
+      return rejectWithValue(lastError)
+    }
+
+    if (backend.envBlocked) {
+      return rejectWithValue(
+        'Sign-in unavailable. Backend blocked /dev/sign-in from the browser; Descope auth is not ready.'
+      )
+    }
+
+    return rejectWithValue(backend.error || 'Invalid email or password')
   }
 )
 

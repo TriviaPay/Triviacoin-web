@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useAppSelector } from '../../store/store'
 import { ENV_CONFIG } from '../../config/env'
 
 const BAR_MIN_HEIGHT = 72
@@ -8,6 +9,7 @@ const BAR_MIN_HEIGHT = 72
  * Web uses AdSense (not the Android APPLICATION_ID). Test creatives: `data-adtest="on"` in dev when a real unit is configured.
  */
 export default function AdSenseBottomBar() {
+  const authModalOpen = useAppSelector((s) => s.ui.modalOpen)
   const insRef = useRef<HTMLModElement>(null)
   const pushedRef = useRef(false)
   const client = ENV_CONFIG.ADSENSE_CLIENT.trim()
@@ -59,10 +61,14 @@ export default function AdSenseBottomBar() {
     document.head.appendChild(s)
   }, [hasRealUnit, client])
 
+  const barClass = `fixed bottom-0 left-0 right-0 flex justify-center border-t border-white/10 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-md ${
+    authModalOpen ? 'z-[30] pointer-events-none' : 'z-[40] pointer-events-auto'
+  }`
+
   if (hasRealUnit) {
     return (
       <div
-        className="pointer-events-auto fixed bottom-0 left-0 right-0 z-[40] flex justify-center border-t border-white/10 bg-midnight/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-md"
+        className={`${barClass} bg-midnight/95`}
         role="complementary"
         aria-label="Advertisement"
       >
@@ -87,7 +93,7 @@ export default function AdSenseBottomBar() {
   if (import.meta.env.PROD) {
     return (
       <div
-        className="fixed bottom-0 left-0 right-0 z-[40] h-[env(safe-area-inset-bottom)] bg-transparent"
+        className={`${barClass} h-[env(safe-area-inset-bottom)] bg-transparent`}
         aria-hidden
       />
     )
@@ -95,7 +101,7 @@ export default function AdSenseBottomBar() {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-0 left-0 right-0 z-[40] flex justify-center border-t border-white/10 bg-black/80 px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-sm"
+      className={`${barClass} border-white/10 bg-black/80 pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-sm pointer-events-none`}
       role="complementary"
       aria-label="Test advertisement"
     >

@@ -13,6 +13,7 @@ import { triviaReducer } from './triviaSlice'
 import { dailyRewardsReducer } from './dailyRewardsSlice'
 import { timerReducer } from './timerSlice'
 import { leaderboardReducer } from './leaderboardSlice'
+import { recentWinnersReducer } from './recentWinnersSlice'
 import { checkoutReducer } from './checkoutSlice'
 import { walletReducer } from './walletSlice'
 import { injectStore } from '../lib/storeRef'
@@ -34,6 +35,7 @@ export const store = configureStore({
     dailyRewards: dailyRewardsReducer,
     timer: timerReducer,
     leaderboard: leaderboardReducer,
+    recentWinners: recentWinnersReducer,
     checkout: checkoutReducer,
     wallet: walletReducer,
   },

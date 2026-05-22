@@ -148,7 +148,9 @@ const Home = () => {
             <h1 className="type-hero-title text-safe">
               Welcome to Trivia Coin!
             </h1>
-            <p className="type-body text-cloud text-safe">Test your knowledge and challenge your friends!</p>
+            <p className="type-body text-cloud text-safe">
+              Jump into Trivia Challenge — play daily, climb the ranks, and unlock exclusive rewards!
+            </p>
             
             <div className="mt-4 flex flex-col items-center gap-6 lg:items-start">
               <div className="mb-4 flex w-full justify-center lg:justify-start">

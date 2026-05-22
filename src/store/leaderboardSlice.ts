@@ -15,6 +15,7 @@ export type LeaderboardRow = {
   score: number
   avatar: string
   userId: number
+  country?: string | null
   position?: number
   submittedAt?: string | null
   profilePic?: string | null
@@ -70,10 +71,56 @@ function listAvatarFromEntry(entry: any, idx: number): string {
   return fallbackAvatars[idx % fallbackAvatars.length] as string
 }
 
+function extractRecentWinnersList(data: Record<string, unknown> | unknown[] | undefined): Record<string, unknown>[] {
+  if (!data) return []
+  if (Array.isArray(data)) return data as Record<string, unknown>[]
+  const d = data as Record<string, unknown>
+  if (Array.isArray(d.winners)) return d.winners as Record<string, unknown>[]
+  return []
+}
+
+/** Recent-winners payload includes `country`; bronze/silver leaderboard endpoints often do not. */
+function recentWinnersForTier(
+  list: Record<string, unknown>[],
+  tier: LeaderboardTier,
+  drawDate: string
+): Record<string, unknown>[] {
+  return list.filter((w) => {
+    const mode = String(w.mode ?? '').toLowerCase()
+    if (mode && mode !== tier) return false
+    const dd = String(w.draw_date ?? w.date ?? '').slice(0, 10)
+    if (drawDate && dd && dd !== drawDate) return false
+    return true
+  })
+}
+
+function countryMapFromEntries(entries: Record<string, unknown>[]): Map<number, string> {
+  const map = new Map<number, string>()
+  for (const w of entries) {
+    const uidRaw = w.user_id ?? w.userid ?? w.account_id
+    const uid = typeof uidRaw === 'number' ? uidRaw : typeof uidRaw === 'string' ? Number(uidRaw) : NaN
+    const c = typeof w.country === 'string' ? w.country.trim() : ''
+    if (Number.isFinite(uid) && uid > 0 && c && !/^unknown$/i.test(c)) {
+      map.set(uid, c)
+    }
+  }
+  return map
+}
+
+function applyCountryToRows(rows: LeaderboardRow[], countryByUser: Map<number, string>): LeaderboardRow[] {
+  if (countryByUser.size === 0) return rows
+  return rows.map((row) => ({
+    ...row,
+    country: row.country ?? (row.userId > 0 ? countryByUser.get(row.userId) ?? null : null),
+  }))
+}
+
 function transformLeaderboard(entries: unknown[]): LeaderboardRow[] {
   if (!Array.isArray(entries)) return []
   return entries.map((entry: any, idx: number) => {
-    const userId = Number(entry.user_id ?? entry.account_id ?? entry.id)
+    const userId = Number(
+      entry.user_id ?? entry.userid ?? entry.account_id ?? entry.player_id ?? entry.winner_id
+    )
     const uidOk = Number.isFinite(userId) && userId > 0
     return {
       id: String(uidOk ? userId : `idx-${idx}`),
@@ -81,6 +128,7 @@ function transformLeaderboard(entries: unknown[]): LeaderboardRow[] {
       name: entry.username ?? entry.name ?? 'Unknown',
       score: formatScore(entry.amount_won ?? entry.amount ?? entry.score ?? entry.gems_awarded ?? entry.money_awarded ?? 0),
       avatar: listAvatarFromEntry(entry, idx),
+      country: typeof entry.country === 'string' ? entry.country : null,
       position: typeof entry.position === 'number' ? entry.position : idx + 1,
       submittedAt: entry.submitted_at ?? null,
       profilePic: entry.profile_pic ?? entry.profile_pic_url ?? null,
@@ -118,14 +166,32 @@ export const fetchLeaderboardData = createAsyncThunk<
       } else {
         res = await apiService.getSilverModeLeaderboard(arg.drawDate, arg.isAuthenticated ? arg.token : null)
       }
-      if (!res.success || !res.data) {
+      const token = arg.isAuthenticated ? arg.token : null
+      const rwRes = await apiService.getRecentWinners(token)
+      const recentList = rwRes.success && rwRes.data ? extractRecentWinnersList(rwRes.data) : []
+      const tierRecent = recentWinnersForTier(recentList, arg.tier, arg.drawDate)
+      const countryByUser = countryMapFromEntries(tierRecent)
+
+      let rows: LeaderboardRow[] = []
+      if (res.success && res.data) {
+        const raw = res.data.leaderboard ?? res.data ?? []
+        rows = transformLeaderboard(Array.isArray(raw) ? raw : [])
+      }
+
+      if (rows.length === 0 && tierRecent.length > 0) {
+        rows = transformLeaderboard(tierRecent)
+      } else {
+        rows = applyCountryToRows(rows, countryByUser)
+      }
+
+      if (!res.success && rows.length === 0) {
         return rejectWithValue(res.error ?? 'Failed to load')
       }
-      const raw = res.data.leaderboard ?? res.data ?? []
+
       return {
         tier: arg.tier,
         drawDate: arg.drawDate,
-        rows: transformLeaderboard(Array.isArray(raw) ? raw : []),
+        rows,
         authed: arg.isAuthenticated,
       }
     } catch (e) {

@@ -1,4 +1,5 @@
 import Button from '../ui/Button'
+import CloseIcon from '../ui/CloseIcon'
 import type { LeaderboardRow } from '../../store/leaderboardSlice'
 
 type Props = {
@@ -75,9 +76,7 @@ const LeaderboardUserModal = ({
           className="absolute right-3 top-3 rounded-full p-2 transition hover:bg-white/10"
           aria-label="Close"
         >
-          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <CloseIcon className="h-6 w-6" />
         </button>
 
         <div className="flex flex-col items-center gap-3 pt-2">

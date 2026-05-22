@@ -1,3 +1,5 @@
+import CloseIcon from '../ui/CloseIcon'
+
 type Props = {
   isEditing: boolean
   isSaving?: boolean
@@ -29,9 +31,7 @@ const ProfileHeader = ({ isEditing, isSaving, toggleEdit, cancelEdit, onSave }: 
             onClick={cancelEdit}
             className="flex items-center gap-1.5 px-2.5 py-2 rounded-full bg-white/15 border border-white/20 hover:bg-white/25 transition text-white text-sm font-semibold"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <CloseIcon className="h-4 w-4" />
             <span className="hidden sm:inline">Cancel</span>
           </button>
           <button

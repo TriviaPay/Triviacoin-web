@@ -5,20 +5,13 @@ import { subscribe as subscribeNotifications, unreadCount as getUnreadCount } fr
 import NotificationsDrawer from '../notifications/NotificationsDrawer'
 import DailyBonusModal from '../daily/DailyBonusModal'
 import gemPng from '../../assets/diamond.png'
+import giftIconPng from '../../assets/giftIcon.png'
 import tpcoinPng from '../../assets/Tpcoin.png'
 
 function BellIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6V11c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
-    </svg>
-  )
-}
-
-function GiftIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 7V3H9v1.5L7.5 3 6 4.5V3H3v4h18V3h-3v1.5L16.5 3 15 4.5V3h-3v4H12zm-9 2v12h18V9H3zm2 2h14v8H5v-8z" />
     </svg>
   )
 }
@@ -87,7 +80,12 @@ export default function HomeActionIcons() {
             onClick={() => setDailyBonusOpen(true)}
             aria-label="Daily Bonus"
           >
-            <GiftIcon className="h-6 w-6 drop-shadow-glow sm:h-7 sm:w-7" />
+            <img
+              src={giftIconPng}
+              alt=""
+              className="h-6 w-6 object-contain drop-shadow-glow sm:h-7 sm:w-7"
+              aria-hidden
+            />
           </motion.button>
         </div>
       </div>
