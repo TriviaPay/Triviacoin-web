@@ -35,7 +35,7 @@ export default function TriviaResultModal({ open, isCorrect, title, message, onC
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 pb-8 pt-2 text-center sm:px-10">
-        <h2 id="trivia-result-title" className="font-display text-3xl text-white sm:text-4xl">
+        <h2 id="trivia-result-title" className="type-page-title text-safe">
           {title ?? (isCorrect ? 'Correct!' : 'Incorrect')}
         </h2>
         {message ? <p className="mt-6 max-w-md text-base leading-relaxed text-white/85 sm:text-lg">{message}</p> : null}

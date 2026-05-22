@@ -1,11 +1,60 @@
 /** @type {import('tailwindcss').Config} */
+
+/**
+ * Fluid scale 320px → 1920px, tuned for 100% browser zoom.
+ * Max sizes sit ~15–20% below prior values so layout stays balanced without zoom compensation.
+ */
+const FLUID_RANGE = 1600
+const fluid = (minRem, maxRem) =>
+  `clamp(${minRem}rem, calc(${minRem}rem + ${maxRem - minRem} * ((100vw - 320px) / ${FLUID_RANGE})), ${maxRem}rem)`
+
 export default {
   content: [
     './index.html',
     './src/**/*.{ts,tsx}',
   ],
   theme: {
+    screens: {
+      xs: '400px',
+      sm: '640px',
+      md: '768px',
+      lg: '1024px',
+      xl: '1280px',
+      '2xl': '1536px',
+      '3xl': '1920px',
+    },
     extend: {
+      maxWidth: {
+        '8xl': '90rem',
+        '9xl': '100rem',
+      },
+      spacing: {
+        nav: 'var(--nav-height)',
+        chrome: 'var(--app-chrome)',
+        'fluid-xs': 'var(--space-xs)',
+        'fluid-sm': 'var(--space-sm)',
+        'fluid-md': 'var(--space-md)',
+        'fluid-lg': 'var(--space-lg)',
+        'fluid-xl': 'var(--space-xl)',
+      },
+      fontSize: {
+        'fluid-2xs': [fluid(0.625, 0.75), { lineHeight: '1.35' }],
+        'fluid-xs': [fluid(0.6875, 0.8125), { lineHeight: '1.4' }],
+        'fluid-sm': [fluid(0.8125, 0.9375), { lineHeight: '1.45' }],
+        'fluid-base': [fluid(0.875, 1), { lineHeight: '1.5' }],
+        'fluid-lg': [fluid(1, 1.125), { lineHeight: '1.45' }],
+        'fluid-xl': [fluid(1.0625, 1.25), { lineHeight: '1.35' }],
+        'fluid-2xl': [fluid(1.125, 1.5), { lineHeight: '1.25' }],
+        'fluid-3xl': [fluid(1.375, 1.875), { lineHeight: '1.2' }],
+        'fluid-4xl': [fluid(1.5, 2.25), { lineHeight: '1.15' }],
+        'fluid-5xl': [fluid(1.625, 2.625), { lineHeight: '1.1' }],
+      },
+      lineHeight: {
+        'fluid-tight': '1.25',
+        'fluid-snug': '1.35',
+        'fluid-normal': '1.5',
+        'fluid-relaxed': '1.625',
+      },
       fontFamily: {
         heading: ['"Poppins"', 'sans-serif'],
         display: ['"Baloo 2"', 'cursive'],

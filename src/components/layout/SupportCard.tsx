@@ -17,13 +17,16 @@ export const PlayStoreIcon = ({ className = 'h-5 w-5 fill-current' }: { classNam
 const SupportCard = () => {
   const dispatch = useAppDispatch()
   return (
-    <section className="section-card flex min-h-[320px] w-full flex-col rounded-3xl bg-cream bg-dots text-[#0b2a6c] shadow-[0_16px_32px_rgba(0,0,0,0.18)] border border-[#e5d4b8]">
+    <section
+      className="section-card flex min-h-[320px] w-full flex-col rounded-3xl bg-cream bg-dots text-[#0b2a6c] shadow-[0_16px_32px_rgba(0,0,0,0.18)] border border-[#e5d4b8]"
+      data-tour="tour-support"
+    >
       <div className="flex flex-1 flex-col gap-4">
         <div className="text-center">
-          <h3 className="text-xl font-display text-[#0b2a6c]">Customer Support</h3>
+          <h3 className="type-card-title text-[#0b2a6c] text-safe">Customer Support</h3>
         </div>
 
-        <p className="text-center text-sm font-medium leading-relaxed text-[#0b2a6c]/80">
+        <p className="type-body-sm text-center font-medium leading-relaxed text-[#0b2a6c]/80">
           Need help or have questions? Contact our support team directly or download our mobile apps for the best experience.
         </p>
 
@@ -53,14 +56,14 @@ const SupportCard = () => {
         <div className="mt-auto flex w-full flex-col items-center gap-3">
           <Button
             onClick={() => dispatch(setReferralModalOpen(true))}
-            className="w-full rounded-full px-4 py-3 text-sm font-semibold uppercase shadow-md active:scale-95"
+            className="w-full rounded-full px-4 py-2.5 font-semibold uppercase shadow-md active:scale-95 sm:py-3"
           >
             Refer a Friend
           </Button>
           <Button
             variant="secondary"
             onClick={() => dispatch(setSupportModalOpen(true))}
-            className="w-full rounded-full bg-[#0d3e92] py-2.5 text-[10px] font-semibold uppercase text-white shadow-md active:scale-95 transition-all hover:bg-[#0b2a6c] sm:text-xs"
+            className="w-full rounded-full bg-[#0d3e92] py-2.5 text-fluid-2xs font-semibold uppercase text-white shadow-md active:scale-95 transition-all hover:bg-[#0b2a6c] sm:text-fluid-xs sm:py-3"
           >
             Email Support
           </Button>

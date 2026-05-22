@@ -1,8 +1,7 @@
-import { useCallback, memo } from 'react'
+import { useMemo } from 'react'
 import { Particles } from 'react-tsparticles'
 import type { Engine, ISourceOptions } from 'tsparticles-engine'
 import { loadSlim } from 'tsparticles-slim'
-import { useMemo } from 'react'
 
 const HeroParticles = () => {
   const options = useMemo<ISourceOptions>(

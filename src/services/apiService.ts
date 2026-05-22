@@ -210,6 +210,34 @@ export const apiService = {
     }
   },
 
+  /** Owned avatar catalog for profile picker; falls back to empty when route is absent. */
+  async fetchOwnedAvatars(
+    token: string,
+  ): Promise<{ success: boolean; data?: Array<{ id: string; name?: string; url?: string }>; error?: string }> {
+    try {
+      const res = await fetchWithAuth(`${BASE_URL}/shop/avatars/owned`, { method: 'GET', token })
+      if (!res.ok) return { success: true, data: [] }
+      const raw = (await res.json()) as Record<string, unknown>
+      const list = (raw?.data ?? raw?.avatars ?? raw?.items) as unknown
+      if (!Array.isArray(list)) return { success: true, data: [] }
+      const data: Array<{ id: string; name?: string; url?: string }> = []
+      for (const row of list) {
+        if (!row || typeof row !== 'object') continue
+        const o = row as Record<string, unknown>
+        const id = String(o.id ?? o.avatar_id ?? '').trim()
+        const urlRaw = o.url ?? o.image_url
+        const url = typeof urlRaw === 'string' ? urlRaw.trim() : undefined
+        const nameRaw = o.name
+        const name = typeof nameRaw === 'string' ? nameRaw.trim() : undefined
+        if (!id && !url) continue
+        data.push({ id: id || (url ?? 'avatar'), name, url })
+      }
+      return { success: true, data }
+    } catch {
+      return { success: true, data: [] }
+    }
+  },
+
   async sendReferral(token: string): Promise<{
     success: boolean
     data?: { referral_code: string; share_text: string; app_link: string }
@@ -578,7 +606,18 @@ export const apiService = {
   async getGlobalChatMessages(
     token: string | null,
     limit = 50
-  ): Promise<{ success: boolean; data?: any[]; metadata?: { online: number; unread: number; requests: number }; error?: string }> {
+  ): Promise<{
+    success: boolean
+    data?: any[]
+    metadata?: {
+      online: number
+      unread: number
+      unreadGlobal: number
+      unreadPrivate: number
+      requests: number
+    }
+    error?: string
+  }> {
     try {
       const res = await fetchWithAuth(`${BASE_URL}${API_CONFIG.ENDPOINTS.GLOBAL_CHAT.MESSAGES}?limit=${limit}`, {
         method: 'GET',
@@ -590,10 +629,16 @@ export const apiService = {
       if (!res.ok) return { success: false, error: String(fullRaw?.message ?? fullRaw?.detail ?? 'Failed to load') }
       
       const list = Array.isArray(data) ? data : (data?.messages as any[]) ?? []
+      const num = (v: unknown) => {
+        const x = Number(v)
+        return Number.isFinite(x) ? x : 0
+      }
       const metadata = {
-        online: Number(data?.online_count ?? fullRaw?.online_count ?? 0),
-        unread: Number(data?.unread_messages_count ?? fullRaw?.unread_messages_count ?? 0),
-        requests: Number(data?.friend_requests_count ?? fullRaw?.friend_requests_count ?? 0),
+        online: num(data?.online_count ?? fullRaw?.online_count),
+        unread: num(data?.unread_messages_count ?? fullRaw?.unread_messages_count),
+        unreadGlobal: num(data?.unread_global_count ?? fullRaw?.unread_global_count),
+        unreadPrivate: num(data?.unread_private_count ?? fullRaw?.unread_private_count),
+        requests: num(data?.friend_requests_count ?? fullRaw?.friend_requests_count),
       }
       return { success: true, data: list, metadata }
     } catch (e) {

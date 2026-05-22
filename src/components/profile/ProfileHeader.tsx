@@ -21,7 +21,7 @@ const ProfileHeader = ({ isEditing, isSaving, toggleEdit, cancelEdit, onSave }: 
           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
           </svg>
-          <span className="text-sm font-semibold text-white hidden sm:inline">Edit</span>
+          <span className="type-nav text-white hidden sm:inline">Edit</span>
         </button>
       ) : (
         <div className="flex items-center gap-2 sm:gap-3">

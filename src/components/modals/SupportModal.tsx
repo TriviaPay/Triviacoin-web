@@ -72,7 +72,7 @@ const SupportModal = () => {
         aria-labelledby="support-title"
       >
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 id="support-title" className="text-lg font-bold sm:text-xl font-display">
+          <h3 id="support-title" className="type-modal-title font-bold text-safe">
             Customer Support
           </h3>
           <button

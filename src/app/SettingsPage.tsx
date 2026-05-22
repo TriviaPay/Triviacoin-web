@@ -1,12 +1,12 @@
 import { setSound, navigate, toggleNotifications, setSupportModalOpen } from '../store/uiSlice'
 import { logout } from '../store/authSlice'
-import Button from '../components/ui/Button'
 import { useState, useCallback, useEffect } from 'react'
 import { useDescope } from '@descope/react-sdk'
 import { FAQ_DATA, type FAQItem } from '../constants/settingsFaq'
 import { apiService, type NativeAppVersionsPayload } from '../services/apiService'
 import clsx from 'clsx'
 import { useOnboarding } from '../components/Onboarding/useOnboarding'
+import { useAppDispatch, useAppSelector } from '../store/store'
 
 const STORAGE_NOTIFICATIONS = 'ui.notificationsEnabled'
 
@@ -18,7 +18,6 @@ const SettingsPage = () => {
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated)
   const sessionToken = useAppSelector((s) => s.auth.token)
   const apiToken = sessionToken && sessionToken.trim() ? sessionToken : null
-  const userEmail = useAppSelector((s) => s.auth.user?.email ?? '')
   const descope = useDescope()
 
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
@@ -116,50 +115,8 @@ const SettingsPage = () => {
     setExpandedFAQ(null)
   }
 
-  const handleOpenSupport = () => {
-    if (userEmail) setSupportEmail(userEmail)
-    setSupportModalOpen(true)
-  }
-
-  const handleCloseSupport = () => {
-    setSupportModalOpen(false)
-    setSupportDescription('')
-  }
-
-  const handleSupportSubmit = async () => {
-    const email = supportEmail.trim()
-    if (!email) {
-      window.alert('Please enter your email address')
-      return
-    }
-    const desc = supportDescription.trim()
-    if (!desc) {
-      window.alert('Please enter a description of your request')
-      return
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      window.alert('Please enter a valid email address')
-      return
-    }
-
-    setIsSubmittingSupport(true)
-    try {
-      await new Promise((r) => setTimeout(r, 800))
-      window.alert('Your support request has been submitted. We will get back to you soon!')
-      handleCloseSupport()
-    } catch {
-      window.alert('Failed to submit support request. Please try again.')
-    } finally {
-      setIsSubmittingSupport(false)
-    }
-  }
-
-  const supportDisabled =
-    isSubmittingSupport || !supportEmail.trim() || !supportDescription.trim()
-
   return (
-    <section className="section-card rounded-3xl bg-quiz-panel text-white">
+    <section className="section-card rounded-3xl bg-quiz-panel p-0 text-white" data-tour="tour-settings">
       <div className="mx-auto w-full max-w-4xl space-y-5 px-3 py-5 sm:space-y-6 sm:px-5 sm:py-6 md:px-8 md:py-8">
         <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
           <ToggleRow
@@ -179,7 +136,7 @@ const SettingsPage = () => {
           <button
             type="button"
             onClick={toggleAllFAQs}
-            className="flex w-full items-center justify-between gap-3 rounded-xl py-2 text-left text-base font-bold text-[#93c5fd] transition hover:text-white sm:text-lg"
+            className="flex w-full items-center justify-between gap-3 rounded-xl py-2 text-left type-body font-bold text-[#93c5fd] transition hover:text-white sm:text-fluid-lg"
             aria-expanded={allFAQsExpanded}
           >
             <span>Frequently Asked Questions</span>
@@ -198,13 +155,13 @@ const SettingsPage = () => {
                       className="flex w-full items-start justify-between gap-3 py-3 text-left sm:py-4"
                       aria-expanded={isOpen}
                     >
-                      <span className="flex-1 text-sm font-medium text-white/95 sm:text-base">
+                      <span className="flex-1 type-body-sm font-medium text-white/95 sm:text-fluid-base">
                         {faq.question}
                       </span>
                       <ChevronIcon up={isOpen} className="mt-0.5 shrink-0 text-white/60" />
                     </button>
                     {isOpen && (
-                      <p className="pb-3 pl-0 text-sm leading-relaxed text-white/70 sm:text-[0.9375rem] md:max-w-3xl">
+                      <p className="pb-3 pl-0 type-body-sm leading-relaxed text-white/70 md:max-w-3xl">
                         {faq.answer}
                       </p>
                     )}
@@ -218,7 +175,7 @@ const SettingsPage = () => {
         <button
           type="button"
           onClick={() => dispatch(setSupportModalOpen(true))}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2563eb] px-4 py-3.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#1d4ed8] sm:py-4 sm:text-base"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2563eb] px-4 py-3.5 text-fluid-sm font-semibold text-white shadow-lg transition hover:bg-[#1d4ed8] sm:py-4 sm:text-fluid-base"
         >
           <HeadsetIcon className="h-5 w-5 shrink-0" />
           Customer Support
@@ -226,7 +183,7 @@ const SettingsPage = () => {
 
         {/* About */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5 md:p-6">
-          <h3 className="text-base font-semibold text-white sm:text-lg">About</h3>
+          <h3 className="type-body font-semibold text-white sm:text-fluid-lg">About</h3>
           {(() => {
             const rows =
               nativeAppVersions?.platforms.filter((p) => {
@@ -240,12 +197,12 @@ const SettingsPage = () => {
             if (rows.length === 0) return null
             return (
               <div className="mt-3 space-y-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-3 sm:mt-4 sm:px-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-white/50">Apps</p>
+                <p className="type-caption font-semibold uppercase tracking-wide text-white/50">Apps</p>
                 {rows.map((p) => {
                   const o = p.os.toLowerCase()
                   const label = o === 'android' ? 'Android' : 'iOS'
                   return (
-                    <p key={p.os} className="text-sm text-white/80">
+                    <p key={p.os} className="type-body-sm text-white/80">
                       <span className="font-medium text-white">{label}</span>
                       <span className="text-white/50"> · </span>
                       <span className="tabular-nums">{p.latest_version}</span>
@@ -258,22 +215,22 @@ const SettingsPage = () => {
           <button
             type="button"
             onClick={() => startTour({ force: true })}
-            className="mt-4 w-full rounded-xl border border-[#ffd66b]/40 bg-[#ffd66b]/10 px-4 py-3 text-sm font-semibold text-[#ffd66b] transition hover:bg-[#ffd66b]/20 sm:text-base"
+            className="mt-4 w-full rounded-xl border border-[#ffd66b]/40 bg-[#ffd66b]/10 px-4 py-3 text-fluid-sm font-semibold text-[#ffd66b] transition hover:bg-[#ffd66b]/20 sm:text-fluid-base"
           >
             Replay welcome tour
           </button>
-          <p className="mt-3 text-sm leading-relaxed text-white/65 sm:text-base">
+          <p className="mt-3 type-body-sm leading-relaxed text-white/65 sm:text-fluid-base">
             This app is designed to provide a fun and engaging experience for users to earn rewards and
             play games.
           </p>
-          <p className="mt-3 text-sm text-white/65 sm:text-base">admin@miragaming.com</p>
+          <p className="mt-3 type-body-sm text-white/65 sm:text-fluid-base">admin@miragaming.com</p>
         </div>
 
         {isAuthenticated && (
           <button
             type="button"
             onClick={() => setLogoutModalOpen(true)}
-            className="w-full rounded-2xl border border-red-500/50 bg-red-500/40 px-4 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-500/60 sm:text-base"
+            className="w-full rounded-2xl border border-red-500/50 bg-red-500/40 px-4 py-3 text-fluid-sm font-semibold text-red-100 transition hover:bg-red-500/60 sm:text-fluid-base"
           >
             Logout
           </button>
@@ -293,10 +250,10 @@ const SettingsPage = () => {
             aria-modal="true"
             aria-labelledby="logout-title"
           >
-            <h3 id="logout-title" className="mb-2 text-xl font-bold">
+            <h3 id="logout-title" className="type-modal-title mb-2 font-bold text-safe">
               Logout
             </h3>
-            <p className="mb-6 text-sm text-white/85">Are you sure you want to logout?</p>
+            <p className="mb-6 type-body-sm text-white/85">Are you sure you want to logout?</p>
             <div className="flex gap-3">
               <button
                 type="button"
@@ -322,7 +279,7 @@ const SettingsPage = () => {
 
 const ToggleRow = ({ label, enabled, onToggle }: { label: string; enabled: boolean; onToggle: () => void }) => (
   <div className="flex min-h-[52px] items-center justify-between gap-3 rounded-2xl bg-white/10 px-4 py-3 sm:min-h-[56px]">
-    <span className="text-sm sm:text-base">{label}</span>
+    <span className="type-body-sm sm:text-fluid-base">{label}</span>
     <button
       type="button"
       onClick={onToggle}
@@ -366,14 +323,6 @@ function HeadsetIcon({ className }: { className?: string }) {
         strokeLinejoin="round"
         d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
       />
-    </svg>
-  )
-}
-
-function CloseIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   )
 }

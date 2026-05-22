@@ -48,21 +48,21 @@ export default function HomeActionIcons() {
         <div className="flex items-center gap-3 px-4 py-2 sm:gap-6 sm:px-8">
           <div className="flex items-center gap-2">
             <img src={gemPng} alt="Gems" className="h-5 w-5 object-contain drop-shadow-glow sm:h-6 sm:w-6" />
-            <span className="text-sm font-black text-white tabular-nums tracking-tighter sm:text-base">
+            <span className="text-fluid-sm font-black text-white tabular-nums tracking-tighter sm:text-fluid-base">
               {gems.toLocaleString()}
             </span>
           </div>
           <div className="h-4 w-px bg-white/20" />
           <div className="flex items-center gap-2">
             <img src={tpcoinPng} alt="TPCoins" className="h-5 w-5 object-contain drop-shadow-glow sm:h-6 sm:w-6" />
-            <span className="text-sm font-black text-[#ffd66b] tabular-nums tracking-tighter sm:text-base">
+            <span className="text-fluid-sm font-black text-[#ffd66b] tabular-nums tracking-tighter sm:text-fluid-base">
               {(tpcoins ?? 0).toLocaleString()}
             </span>
           </div>
         </div>
 
-        {/* Action Buttons Group - Right Aligned, Transparent by Default */}
-        <div className="flex items-center">
+        {/* Action Buttons Group — bell + daily bonus (tour highlights this cluster) */}
+        <div className="flex items-center" data-tour="tour-notifications">
           <motion.button
             type="button"
             whileHover={{ y: -2, scale: 1.05, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
@@ -73,7 +73,7 @@ export default function HomeActionIcons() {
           >
             <BellIcon className="h-6 w-6 drop-shadow-glow sm:h-7 sm:w-7" />
             {notifUnread > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-tr from-red-500 to-rose-400 px-1 text-[10px] font-black text-white ring-2 ring-[#0b2a6c] shadow-lg">
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-tr from-red-500 to-rose-400 px-1 text-fluid-2xs font-black text-white ring-2 ring-[#0b2a6c] shadow-lg">
                 {notifUnread > 9 ? '9+' : notifUnread}
               </span>
             )}

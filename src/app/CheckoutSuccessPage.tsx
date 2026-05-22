@@ -123,41 +123,41 @@ export default function CheckoutSuccessPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0a1628] px-4 py-24 text-white">
-      <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-white/5 p-8">
-        <h1 className="font-display text-2xl font-bold text-[#ffd66b]">{headline}</h1>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0a1628] px-4 py-16 sm:py-24 text-white">
+      <div className="mx-auto w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-6 sm:p-8">
+        <h1 className="type-section-title font-bold text-[#ffd66b] text-safe">{headline}</h1>
 
         {!sessionId ? (
-          <p className="mt-4 text-sm text-white/75">No checkout session in this link.</p>
+          <p className="mt-4 type-body-sm text-white/75">No checkout session in this link.</p>
         ) : !token?.trim() ? (
-          <p className="mt-4 text-sm text-white/75">Sign in to load payment status.</p>
+          <p className="mt-4 type-body-sm text-white/75">Sign in to load payment status.</p>
         ) : loading && !status ? (
           <>
-            <p className="mt-4 text-sm text-white/75">Checking payment with the server…</p>
+            <p className="mt-4 type-body-sm text-white/75">Checking payment with the server…</p>
             <div className="mt-6 flex justify-center">
               <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/25 border-t-[#ffd66b]" />
             </div>
           </>
         ) : error ? (
           <>
-            <p className="mt-4 text-sm text-red-300">{error}</p>
+            <p className="mt-4 type-body-sm text-red-300">{error}</p>
             <button
               type="button"
               onClick={() => retry()}
-              className="mt-6 rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/25"
+              className="mt-6 rounded-xl bg-white/15 px-4 py-2 text-fluid-sm font-semibold text-white hover:bg-white/25"
             >
               Retry
             </button>
           </>
         ) : status?.payment_status === 'paid' && status.fulfillment_status === 'fulfilled' ? (
-          <div className="mt-4 space-y-2 text-sm text-emerald-200">
+          <div className="mt-4 space-y-2 type-body-sm text-emerald-200">
             <p>{isSubscription ? 'Your subscription is active.' : 'Payment successful and fulfillment completed.'}</p>
             {status.gems_credited > 0 ? <p className="tabular-nums">{status.gems_credited} gems credited.</p> : null}
             {status.completed_at ? <p className="text-white/50">Completed {status.completed_at}</p> : null}
           </div>
         ) : status?.payment_status === 'paid' ? (
           <>
-            <p className="mt-4 text-sm text-amber-200">
+            <p className="mt-4 type-body-sm text-amber-200">
               Payment received — fulfillment is still processing. This page updates automatically; webhook is the source of
               truth.
             </p>
@@ -167,7 +167,7 @@ export default function CheckoutSuccessPage() {
             <button
               type="button"
               onClick={() => retry()}
-              className="mt-6 w-full rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20"
+              className="mt-6 w-full rounded-xl bg-white/10 px-4 py-2 text-fluid-sm font-semibold text-white hover:bg-white/20"
             >
               Refresh status
             </button>
@@ -178,7 +178,7 @@ export default function CheckoutSuccessPage() {
           </p>
         )}
 
-        <Link to="/" className="mt-8 inline-block text-sm font-semibold text-[#93c5fd] underline">
+        <Link to="/" className="mt-8 inline-block text-fluid-sm font-semibold text-[#93c5fd] underline">
           Back to app
         </Link>
       </div>

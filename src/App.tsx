@@ -1,19 +1,18 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAppDispatch, useAppSelector } from './store/store'
 import { fetchNextDraw } from './store/timerSlice'
 import { fetchLeaderboard } from './lib/utils'
-import { navigate, setReferralModalOpen } from './store/uiSlice'
+import { setReferralModalOpen } from './store/uiSlice'
 import Home from './app/Home'
 import HomeFreeQuizEmbed from './components/home/HomeFreeQuizEmbed'
 import HomeActionIcons from './components/home/HomeActionIcons'
 import Result from './app/Result'
-import ChallengeFriendsCard from './components/layout/ChallengeFriendsCard'
+import AdSenseHomeGridCard from './components/ads/AdSenseHomeGridCard'
 import Navbar from './components/layout/Navbar'
 import FloatingIcons from './components/animations/FloatingIcons'
 import SupportCard from './components/layout/SupportCard'
 import AuthModal from './components/modals/AuthModal'
-import InstructionModal from './components/modals/InstructionModal'
 import ReferralModal from './components/modals/ReferralModal'
 import SupportModal from './components/modals/SupportModal'
 import DailyChallenges from './app/DailyChallenges'
@@ -58,10 +57,6 @@ const App = () => {
     queryFn: fetchLeaderboard,
   })
 
-  const handlePlayAgain = useCallback(() => {
-    dispatch(navigate('daily'))
-  }, [dispatch])
-
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       <FloatingIcons />
@@ -75,7 +70,7 @@ const App = () => {
       <SupportModal />
 
       <main className="relative z-10 w-full min-w-0 px-3 pb-4 pt-20 sm:px-6 sm:pb-8 sm:pt-24 lg:px-8">
-        <div className="mx-auto w-full min-w-0 max-w-screen-2xl space-y-4 sm:space-y-6">
+        <div className="mx-auto w-full min-w-0 max-w-screen-2xl space-y-4 sm:space-y-6 text-safe">
           {/* Mobile-only currency header */}
           {currentPage === 'home' && (
             <div className="lg:hidden">
@@ -85,7 +80,7 @@ const App = () => {
 
           {currentPage === 'home' && (
             <>
-              <div className="grid w-full items-start gap-6 lg:grid-cols-[3fr_1fr] lg:items-start">
+              <div className="grid w-full items-start gap-6 lg:grid-cols-[3fr_1fr] lg:items-start xl:gap-8">
                 <Home />
                 <div className="hidden w-full min-w-0 self-start lg:sticky lg:top-28 lg:block">
                   <HomeActionIcons />
@@ -93,12 +88,9 @@ const App = () => {
                 </div>
               </div>
 
-              <div className="grid w-full gap-6 lg:grid-cols-3">
+              <div className="grid w-full grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3 md:items-stretch">
                 <Result leaderboardQuery={leaderboardQuery} />
-                <ChallengeFriendsCard
-                  onPlayAgain={handlePlayAgain}
-                  onShare={() => navigator.share?.({ title: 'Trivia Quest', text: 'I crushed this quiz!' })}
-                />
+                <AdSenseHomeGridCard />
                 <SupportCard />
               </div>
             </>

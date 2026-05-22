@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useAppDispatch, useAppSelector } from '../store/store'
-import { clearActiveChatId, clearPendingChatPeer } from '../store/uiSlice'
+import { clearActiveChatId, clearPendingChatPeer, setChatStatus } from '../store/uiSlice'
 import { apiService } from '../services/apiService'
 import ChatAvatar from '../components/chat/ChatAvatar'
 import SwipeableMessage from '../components/chat/SwipeableMessage'
@@ -146,6 +146,10 @@ const ChatsPage = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const convFetchedRef = useRef(false)
   const messagesFetchedRef = useRef<number | null>(null)
+  /** Tracks which thread was last opened so we scroll to end once per visit. */
+  const scrollAnchorRef = useRef<string | null>(null)
+  /** When true, new messages keep the view pinned to the latest (user is at bottom or just opened). */
+  const followBottomRef = useRef(true)
 
   const ACCOUNT_ID_KEY = 'trivia_chat_account_id'
   const [accountId, setAccountId] = useState<number | string | null>(() => {
@@ -156,6 +160,66 @@ const ChatsPage = () => {
     return (user as any)?.account_id ?? (user as any)?.id ?? null
   })
   const currentUserId = accountId ?? (user as any)?.account_id ?? (user as any)?.id ?? profile?.account_id
+
+  const chatStatus = useAppSelector((s) => s.ui.chatStatus)
+
+  const getScrollAnchor = useCallback((): string | null => {
+    if (activeTab === 'GLOBAL') return 'global'
+    if (activeTab === 'PRIVATE' && selectedConvId != null) return `private-${selectedConvId}`
+    if (activeTab === 'PRIVATE' && pendingComposePeerId != null) return `compose-${pendingComposePeerId}`
+    return null
+  }, [activeTab, selectedConvId, pendingComposePeerId])
+
+  const applyChatMetadata = useCallback(
+    (meta: {
+      online: number
+      unread: number
+      unreadGlobal: number
+      unreadPrivate: number
+      requests: number
+    } | undefined) => {
+      if (!meta) return
+      dispatch(
+        setChatStatus({
+          unreadMessages: Number.isFinite(meta.unread) ? meta.unread : 0,
+          unreadGlobal: Number.isFinite(meta.unreadGlobal) ? meta.unreadGlobal : 0,
+          unreadPrivate: Number.isFinite(meta.unreadPrivate) ? meta.unreadPrivate : 0,
+          friendRequests: Number.isFinite(meta.requests) ? meta.requests : 0,
+          onlineCount: Number.isFinite(meta.online) ? meta.online : 0,
+        }),
+      )
+    },
+    [dispatch],
+  )
+
+  const refreshNavbarChatBadge = useCallback(async () => {
+    if (!token) return
+    const res = await apiService.getGlobalChatMessages(token, 1)
+    applyChatMetadata(res.metadata)
+  }, [token, applyChatMetadata])
+
+  const fetchGlobalMessages = useCallback(async (opts?: { quiet?: boolean }) => {
+    if (!opts?.quiet) setGlobalLoading(true)
+    try {
+      const res = await apiService.getGlobalChatMessages(token)
+      if (res.success && res.metadata) applyChatMetadata(res.metadata)
+      if (res.success && res.data) {
+        const seen = new Set<number>()
+        setGlobalMessages(res.data.filter((m: { id: number }) => {
+          if (seen.has(m.id)) return false
+          seen.add(m.id)
+          return true
+        }))
+      }
+    } finally {
+      if (!opts?.quiet) setGlobalLoading(false)
+    }
+  }, [token, applyChatMetadata])
+
+  useEffect(() => {
+    if (!token) return
+    void refreshNavbarChatBadge()
+  }, [token, refreshNavbarChatBadge])
 
   useEffect(() => {
     if (!token) {
@@ -177,23 +241,6 @@ const ChatsPage = () => {
         }
       }
     })
-  }, [token])
-
-  const fetchGlobalMessages = useCallback(async (opts?: { quiet?: boolean }) => {
-    if (!opts?.quiet) setGlobalLoading(true)
-    try {
-      const res = await apiService.getGlobalChatMessages(token)
-      if (res.success && res.data) {
-        const seen = new Set<number>()
-        setGlobalMessages(res.data.filter((m: { id: number }) => {
-          if (seen.has(m.id)) return false
-          seen.add(m.id)
-          return true
-        }))
-      }
-    } finally {
-      if (!opts?.quiet) setGlobalLoading(false)
-    }
   }, [token])
 
   const fetchConversations = useCallback(async () => {
@@ -270,31 +317,50 @@ const ChatsPage = () => {
   }, [activeTab])
 
   useEffect(() => {
-    if (selectedConvId && token) {
-      messagesFetchedRef.current = selectedConvId
-      fetchPrivateMessages(selectedConvId)
-    } else {
+    if (!selectedConvId || !token) {
       setPrivateMessages([])
       messagesFetchedRef.current = null
+      return
     }
-  }, [selectedConvId, token, fetchPrivateMessages])
+    messagesFetchedRef.current = selectedConvId
+    let cancelled = false
+    void (async () => {
+      await fetchPrivateMessages(selectedConvId)
+      if (!cancelled) await refreshNavbarChatBadge()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedConvId, token, fetchPrivateMessages, refreshNavbarChatBadge])
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (activeTab === 'GLOBAL') void fetchGlobalMessages({ quiet: true })
       else if (!token) {
         /* guests: no private poll */
-      } else if (selectedConvId) void fetchPrivateMessages(selectedConvId)
-      else void fetchConversations()
+      } else if (selectedConvId) {
+        void fetchPrivateMessages(selectedConvId).then(() => refreshNavbarChatBadge())
+      } else {
+        void fetchConversations().then(() => refreshNavbarChatBadge())
+      }
     }, 15000)
     return () => clearInterval(interval)
-  }, [token, activeTab, selectedConvId, fetchGlobalMessages, fetchConversations, fetchPrivateMessages])
+  }, [
+    token,
+    activeTab,
+    selectedConvId,
+    fetchGlobalMessages,
+    fetchConversations,
+    fetchPrivateMessages,
+    refreshNavbarChatBadge,
+  ])
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current
     if (!el) return
     const { scrollTop, scrollHeight, clientHeight } = el
     const distFromBottom = scrollHeight - scrollTop - clientHeight
+    followBottomRef.current = distFromBottom <= 120
     setShowScrollDown(distFromBottom > 120)
   }, [])
 
@@ -303,16 +369,45 @@ const ChatsPage = () => {
     if (!el) return
     el.addEventListener('scroll', handleScroll, { passive: true })
     return () => el.removeEventListener('scroll', handleScroll)
-  }, [handleScroll, activeTab, globalMessages.length, privateMessages.length])
+  }, [handleScroll, activeTab])
 
+  const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior })
+  }, [])
+
+  /** Scroll to latest once when opening global or a private thread. */
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [globalMessages.length, privateMessages.length])
+    const anchor = getScrollAnchor()
+    if (!anchor || scrollAnchorRef.current === anchor) return
+    scrollAnchorRef.current = anchor
+    followBottomRef.current = true
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => scrollMessagesToBottom('auto'))
+    })
+  }, [getScrollAnchor, scrollMessagesToBottom])
+
+  /** Pin to bottom only while user is already at the bottom (e.g. poll or send). */
+  useEffect(() => {
+    const anchor = getScrollAnchor()
+    if (!anchor || anchor !== scrollAnchorRef.current || !followBottomRef.current) return
+    if (activeTab === 'GLOBAL' && globalLoading) return
+    requestAnimationFrame(() => scrollMessagesToBottom('auto'))
+  }, [
+    globalMessages.length,
+    privateMessages.length,
+    globalLoading,
+    activeTab,
+    getScrollAnchor,
+    scrollMessagesToBottom,
+  ])
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    followBottomRef.current = true
+    scrollMessagesToBottom('smooth')
     setShowScrollDown(false)
-  }, [])
+  }, [scrollMessagesToBottom])
 
   const filteredConversations = conversations.filter(
     (c) =>
@@ -340,7 +435,8 @@ const ChatsPage = () => {
     setAcceptRejectLoading(false)
     if (res.success) {
       await fetchConversations()
-      void fetchPrivateMessages(selectedConvId)
+      await fetchPrivateMessages(selectedConvId)
+      void refreshNavbarChatBadge()
     }
   }
 
@@ -355,6 +451,7 @@ const ChatsPage = () => {
     if (res.success) {
       setSelectedConvId(null)
       await fetchConversations()
+      void refreshNavbarChatBadge()
     }
   }
 
@@ -368,13 +465,11 @@ const ChatsPage = () => {
     const res = await apiService.sendGlobalMessage(token, msg, replyId)
     setGlobalSending(false)
     if (res.success) {
-      const data = await (async () => {
-        const r = await apiService.getGlobalChatMessages(token)
-        return r.success && r.data ? r.data : null
-      })()
-      if (data) {
+      const r = await apiService.getGlobalChatMessages(token)
+      if (r.success && r.metadata) applyChatMetadata(r.metadata)
+      if (r.success && r.data) {
         const seen = new Set<number>()
-        setGlobalMessages(data.filter((m) => {
+        setGlobalMessages(r.data.filter((m) => {
           if (seen.has(m.id)) return false
           seen.add(m.id)
           return true
@@ -385,7 +480,10 @@ const ChatsPage = () => {
     } else {
       setDraft(msg)
     }
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+    setTimeout(() => {
+      followBottomRef.current = true
+      scrollMessagesToBottom('smooth')
+    }, 50)
   }
 
   const handleSendPrivate = async () => {
@@ -421,10 +519,14 @@ const ChatsPage = () => {
           if (cid != null) setSelectedConvId(cid)
           if (cid != null) void fetchPrivateMessages(cid)
         }
+        void refreshNavbarChatBadge()
       } else {
         setDraft(msg)
       }
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+      setTimeout(() => {
+        followBottomRef.current = true
+        scrollMessagesToBottom('smooth')
+      }, 50)
       return
     }
 
@@ -455,10 +557,14 @@ const ChatsPage = () => {
       } else {
         fetchPrivateMessages(selectedConvId!)
       }
+      void refreshNavbarChatBadge()
     } else {
       setDraft(msg)
     }
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+    setTimeout(() => {
+      followBottomRef.current = true
+      scrollMessagesToBottom('smooth')
+    }, 50)
   }
 
   const handleReplyToMessage = (id: number, text: string, sender: string) => {
@@ -527,14 +633,14 @@ const ChatsPage = () => {
             }`}
           >
             {msg.reply_to && (
-              <div className="mb-1 border-l-2 border-white/40 pl-2 text-xs opacity-90">
+              <div className="mb-1 border-l-2 border-white/40 pl-2 text-fluid-xs opacity-90">
                 <div className="font-semibold">{(msg.reply_to as any).sender ?? (msg.reply_to as any).sender_username}</div>
                 <div className="truncate">{msg.reply_to.message}</div>
               </div>
             )}
-            <span className="text-sm">{msg.message}</span>
+            <span className="type-body-sm">{msg.message}</span>
           </div>
-          <span className="mt-0.5 text-[10px] text-white/60">
+          <span className="mt-0.5 text-fluid-2xs text-white/60">
             {formatTime(msg.created_at)}
           </span>
           </div>
@@ -547,44 +653,54 @@ const ChatsPage = () => {
     activeTab === 'PRIVATE' && (selectedConvId != null || pendingComposePeerId != null)
 
   return (
-    <div className="mx-auto flex w-full max-w-[100%] flex-col md:max-w-[60%] lg:max-w-[60%]">
-      {/* Toggles - centered, outside container */}
-      <div className="mb-4 flex justify-center gap-2">
+    <section
+      className="section-card relative mx-auto flex h-[calc(100dvh-10.5rem)] max-h-[calc(100dvh-10.5rem)] min-h-[320px] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-quiz-panel px-3 py-4 text-white sm:max-w-2xl md:max-w-3xl sm:px-5 sm:py-5"
+      data-tour="tour-chats"
+    >
+      {/* Toggles - centered */}
+      <div className="mb-4 flex shrink-0 justify-center gap-2">
         <button
           onClick={() => setActiveTab('GLOBAL')}
-          className={`rounded-full px-6 py-2.5 text-sm font-semibold transition ${
+          className={`relative rounded-full px-4 py-2.5 text-fluid-sm font-semibold transition sm:px-6 ${
             activeTab === 'GLOBAL'
               ? 'bg-gradient-to-b from-[#ffd66b] to-[#f3a011] text-[#7c4c00] shadow-glow'
               : 'bg-white/15 text-white/70 hover:bg-white/20'
           }`}
         >
           Global
+          {chatStatus.unreadGlobal > 0 && activeTab !== 'GLOBAL' ? (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1 text-fluid-2xs font-bold text-white">
+              {chatStatus.unreadGlobal > 99 ? '99+' : chatStatus.unreadGlobal}
+            </span>
+          ) : null}
         </button>
         <button
           onClick={() => setActiveTab('PRIVATE')}
-          className={`rounded-full px-6 py-2.5 text-sm font-semibold transition ${
+          className={`relative rounded-full px-4 py-2.5 text-fluid-sm font-semibold transition sm:px-6 ${
             activeTab === 'PRIVATE'
               ? 'bg-gradient-to-b from-[#ffd66b] to-[#f3a011] text-[#7c4c00] shadow-glow'
               : 'bg-white/15 text-white/70 hover:bg-white/20'
           }`}
         >
           Private
+          {chatStatus.unreadPrivate > 0 && activeTab !== 'PRIVATE' ? (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1 text-fluid-2xs font-bold text-white">
+              {chatStatus.unreadPrivate > 99 ? '99+' : chatStatus.unreadPrivate}
+            </span>
+          ) : null}
         </button>
       </div>
 
-      <div
-        className="flex h-[calc(100vh-10rem)] min-h-[320px] sm:min-h-[360px] w-full flex-col sm:flex-row gap-0 sm:gap-4 overflow-hidden rounded-2xl sm:rounded-3xl bg-quiz-panel text-white"
-        style={{ maxHeight: 'calc(100vh - 10rem)' }}
-      >
+      <div className="flex min-h-0 flex-1 w-full flex-col gap-0 overflow-hidden rounded-xl border border-white/10 bg-black/10 text-white sm:flex-row sm:gap-4">
         {/* Left panel - only for PRIVATE; on mobile: full width when no conv selected, hidden when conv selected */}
         {activeTab === 'PRIVATE' && (
           <div
-            className={`flex flex-col border-r-0 border-white/10 sm:w-[300px] sm:min-w-[280px] sm:max-w-[320px] sm:border-r ${
+            className={`flex min-h-0 flex-col border-r-0 border-white/10 sm:w-[300px] sm:min-w-[280px] sm:max-w-[320px] sm:border-r ${
               privateDetailOpen ? 'hidden sm:flex' : 'flex w-full'
             }`}
           >
             {!token ? (
-              <div className="flex flex-1 items-center justify-center p-4 text-center text-sm text-white/60">
+              <div className="flex flex-1 items-center justify-center p-4 text-center type-body-sm text-white/60">
                 Sign in to view private chats
               </div>
             ) : (
@@ -595,7 +711,7 @@ const ChatsPage = () => {
                     placeholder="Search..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full rounded-xl bg-white/10 px-3 py-2 text-sm text-white placeholder-white/50 outline-none"
+                    className="input-field !rounded-xl !bg-white/10 !px-3 !py-2"
                   />
                 </div>
                 <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
@@ -604,7 +720,7 @@ const ChatsPage = () => {
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#ffd66b] border-t-transparent" />
                     </div>
                   ) : filteredConversations.length === 0 ? (
-                    <div className="py-8 text-center text-sm text-white/60">
+                    <div className="py-8 text-center type-body-sm text-white/60">
                       No private chats yet
                     </div>
                   ) : (
@@ -638,12 +754,17 @@ const ChatsPage = () => {
                                 <p className="truncate font-semibold">
                                   {conv.peer_username || 'Unknown'}
                                 </p>
-                                <p className="truncate text-xs text-white/70">
+                                <p className="truncate type-body-sm text-white/70">
                                   {conv.last_message || 'No messages yet'}
                                 </p>
                   </div>
                 </div>
-                            <span className="ml-2 shrink-0 text-xs text-white/60">
+                            {(conv.unread_count ?? 0) > 0 ? (
+                              <span className="ml-2 flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-fluid-2xs font-bold text-white">
+                                {(conv.unread_count ?? 0) > 99 ? '99+' : conv.unread_count}
+                              </span>
+                            ) : null}
+                            <span className="ml-2 hidden shrink-0 text-fluid-xs text-white/60 xs:inline">
                               {conv.last_message_at
                                 ? formatListTime(conv.last_message_at)
                                 : ''}
@@ -661,7 +782,7 @@ const ChatsPage = () => {
 
         {/* Messages area - hidden on mobile until a thread or waiting state is open */}
         <div
-          className={`relative flex min-w-0 flex-1 flex-col ${
+          className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${
             activeTab === 'PRIVATE' && !privateDetailOpen ? 'hidden sm:flex' : 'flex'
           }`}
         >
@@ -680,9 +801,9 @@ const ChatsPage = () => {
                 </svg>
               </button>
             )}
-            <h3 className="flex-1 truncate font-display text-base sm:text-lg">
+            <h3 className="flex-1 truncate type-card-title text-safe">
               {activeTab === 'GLOBAL'
-                ? 'Global Chat'
+                ? `Global Chat${chatStatus.onlineCount > 0 ? ` · ${chatStatus.onlineCount} online` : ''}`
                 : pendingComposePeerId != null && !selectedConvId
                   ? 'New message'
                   : selectedConv
@@ -693,8 +814,8 @@ const ChatsPage = () => {
 
           {activeTab === 'PRIVATE' && selectedConvId != null && needsAcceptance && selectedConv ? (
             <div className="shrink-0 border-b border-white/10 bg-white/5 px-3 py-3 text-center sm:px-4">
-              <p className="text-sm font-semibold text-white">Chat request</p>
-              <p className="mt-1 text-xs text-white/75">
+              <p className="type-body-sm font-semibold text-white">Chat request</p>
+              <p className="mt-1 type-body-sm text-white/75">
                 <span className="font-medium text-white/90">{selectedConv.peer_username || 'This user'}</span> wants to
                 chat with you
               </p>
@@ -703,7 +824,7 @@ const ChatsPage = () => {
                   type="button"
                   disabled={acceptRejectLoading}
                   onClick={() => void handleRejectChatRequest()}
-                  className="min-h-[44px] flex-1 rounded-xl border border-white/20 bg-white/10 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15 disabled:opacity-60"
+                  className="min-h-[44px] flex-1 rounded-xl border border-white/20 bg-white/10 py-2.5 text-fluid-sm font-semibold text-white transition hover:bg-white/15 disabled:opacity-60"
                 >
                   {acceptRejectLoading ? '…' : 'Reject'}
                 </button>
@@ -711,7 +832,7 @@ const ChatsPage = () => {
                   type="button"
                   disabled={acceptRejectLoading}
                   onClick={() => void handleAcceptChatRequest()}
-                  className="min-h-[44px] flex-1 rounded-xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] py-2.5 text-sm font-semibold text-[#7c4c00] shadow-glow disabled:opacity-60"
+                  className="min-h-[44px] flex-1 rounded-xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] py-2.5 text-fluid-sm font-semibold text-[#7c4c00] shadow-glow disabled:opacity-60"
                 >
                   {acceptRejectLoading ? '…' : 'Accept'}
                 </button>
@@ -721,7 +842,7 @@ const ChatsPage = () => {
 
           {activeTab === 'PRIVATE' && selectedConvId != null && peerBlockedByMe ? (
             <div
-              className="flex shrink-0 items-center gap-2 border-b border-white/10 bg-red-500/15 px-3 py-2.5 text-sm text-red-200 sm:px-4"
+              className="flex shrink-0 items-center gap-2 border-b border-white/10 bg-red-500/15 px-3 py-2.5 type-body-sm text-red-200 sm:px-4"
               role="status"
             >
               <span className="text-base leading-none opacity-90" aria-hidden>
@@ -761,7 +882,7 @@ const ChatsPage = () => {
               <>
                 {pendingComposePeerId != null && !selectedConvId ? (
                   <div className="flex flex-1 flex-col items-center justify-center px-4 py-8 text-center sm:py-10">
-                    <p className="max-w-sm text-sm leading-relaxed text-white/80">
+                    <p className="max-w-sm type-body-sm leading-relaxed text-white/80">
                       No chat with this player yet. Type your first message below — the thread opens after you send,
                       same as starting any private chat on mobile.
                     </p>
@@ -792,7 +913,7 @@ const ChatsPage = () => {
           {showScrollDown && (
             <button
               onClick={scrollToBottom}
-              className="absolute bottom-20 right-3 sm:right-6 z-10 flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-white/20 shadow-lg transition hover:bg-white/30 touch-manipulation"
+              className="absolute bottom-[calc(env(safe-area-inset-bottom)+5rem)] right-3 sm:right-6 z-10 flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-white/20 shadow-lg transition hover:bg-white/30 touch-manipulation"
               aria-label="Scroll to bottom"
             >
               <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -806,8 +927,8 @@ const ChatsPage = () => {
               {replyingTo && (
                 <div className="mb-2 flex items-center justify-between rounded-xl bg-white/10 px-3 py-2">
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-[#ffd66b]">Replying to {replyingTo.sender}</div>
-                    <div className="truncate text-xs text-white/70">{replyingTo.message}</div>
+                    <div className="text-fluid-xs font-semibold text-[#ffd66b]">Replying to {replyingTo.sender}</div>
+                    <div className="truncate text-fluid-xs text-white/70">{replyingTo.message}</div>
                   </div>
                   <button
                     onClick={() => setReplyingTo(null)}
@@ -820,7 +941,7 @@ const ChatsPage = () => {
               )}
               <div className="flex items-center gap-2">
           <input
-                  className="min-h-[44px] flex-1 min-w-0 rounded-full border border-white/15 bg-white/10 px-3 py-3 text-sm text-white placeholder-white/50 outline-none focus:border-[#ffd66b] sm:py-2.5"
+                  className="input-field min-h-[44px] flex-1 min-w-0 !rounded-full !border-white/15 !bg-white/10 !px-3 !py-3 sm:!py-2.5"
                   placeholder={
                     activeTab === 'GLOBAL'
                       ? 'Type a message'
@@ -850,7 +971,7 @@ const ChatsPage = () => {
                     (activeTab === 'PRIVATE' && !selectedConv && pendingComposePeerId == null) ||
                     (activeTab === 'PRIVATE' && privateComposeLocked)
                   }
-                  className="min-h-[44px] shrink-0 rounded-full bg-gradient-to-b from-[#ffd66b] to-[#f3a011] px-4 py-3 text-sm font-semibold text-[#7c4c00] disabled:opacity-50 touch-manipulation sm:py-2.5"
+                  className="min-h-[44px] shrink-0 rounded-full bg-gradient-to-b from-[#ffd66b] to-[#f3a011] px-4 py-3 text-fluid-sm font-semibold text-[#7c4c00] disabled:opacity-50 touch-manipulation sm:py-2.5"
                   onClick={activeTab === 'GLOBAL' ? handleSendGlobal : handleSendPrivate}
                 >
                   {(activeTab === 'GLOBAL' ? globalSending : privateSending) ? '…' : 'Send'}
@@ -860,7 +981,7 @@ const ChatsPage = () => {
           ) : null}
         </div>
       </div>
-    </div>
+    </section>
   )
 }
 

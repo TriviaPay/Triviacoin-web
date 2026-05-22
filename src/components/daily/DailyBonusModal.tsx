@@ -246,14 +246,10 @@ export default function DailyBonusModal({ open, onClose }: Props) {
   const {
     rewards,
     currentDay,
-    streakCount,
     daysClaimedList,
     dayStatus,
-    totalGemsEarnedThisWeek,
     loading,
     claimInProgress,
-    error,
-    message,
     lastFetch,
   } = useAppSelector((s) => s.dailyRewards)
   const gems = useAppSelector((s) => s.shop.userBalance.gems)
@@ -308,7 +304,6 @@ export default function DailyBonusModal({ open, onClose }: Props) {
   }, [rewards, lastFetch, currentDay, daysClaimedList, dayStatus, hasClaimedToday])
 
   const currentDayReward = useMemo(() => displayRewards.find((r) => r.day === currentDay), [displayRewards, currentDay])
-  const currentTotalGemsFromRewards = useMemo(() => displayRewards.filter((r) => r.claimed).reduce((s, r) => s + r.value, 0), [displayRewards])
 
   const canClaimToday = useMemo(() => {
     const todayReward = displayRewards.find((r) => r.day === currentDay)
@@ -431,7 +426,7 @@ export default function DailyBonusModal({ open, onClose }: Props) {
             initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 15, opacity: 0 }}
           >
             <div className="relative border-b border-white/10 px-4 pb-1.5 pt-3 text-center sm:pb-3 sm:pt-4">
-              <h2 className="font-display text-base font-bold text-[#ffd66b] drop-shadow-glow sm:text-xl">Daily bonus</h2>
+              <h2 className="type-modal-title font-bold text-[#ffd66b] drop-shadow-glow text-safe">Daily bonus</h2>
               <button type="button" disabled={busy} onClick={onClose} className="absolute right-2 top-2 p-2 text-cloud transition hover:bg-white/10 disabled:opacity-40 sm:right-3 sm:top-3">
                 <span className="text-2xl leading-none">×</span>
               </button>
@@ -443,7 +438,7 @@ export default function DailyBonusModal({ open, onClose }: Props) {
                   <AssetDiamondsTotal className="h-10 w-10 sm:h-14 sm:w-14" />
                   <div className="text-left">
                     <p className="text-[10px] font-semibold text-cloud sm:text-xs">Your gems balance</p>
-                    <p className="font-display text-lg font-black tabular-nums text-[#ffd66b] sm:text-2xl">{displayedGems}</p>
+                    <p className="type-section-title font-black tabular-nums text-[#ffd66b] text-safe">{displayedGems}</p>
                   </div>
                 </div>
 

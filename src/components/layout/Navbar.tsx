@@ -10,9 +10,7 @@ import { apiService } from '../../services/apiService'
 import { setChatStatus } from '../../store/uiSlice'
 import { resolveProfileDisplayMedia } from '../../utils/profileDisplayMedia'
 import ChatAvatar from '../chat/ChatAvatar'
-import DailyBonusModal from '../daily/DailyBonusModal'
-import NotificationsDrawer from '../notifications/NotificationsDrawer'
-import { subscribe as subscribeNotifications, syncFromApi, unreadCount as getUnreadCount } from '../../services/notificationService'
+import { subscribe as subscribeNotifications, syncFromApi } from '../../services/notificationService'
 import { useOnboarding } from '../Onboarding/OnboardingContext'
 
 import gemPng from '../../assets/diamond.png'
@@ -89,7 +87,7 @@ const Navbar = ({ onStart: _onStart }: Props) => {
 
   useEffect(() => {
     return subscribeNotifications(() => {
-      // getUnreadCount() or similar logic
+      /* optional: drive badge refresh */
     })
   }, [])
 
@@ -109,11 +107,14 @@ const Navbar = ({ onStart: _onStart }: Props) => {
     const fetchChatStatus = async () => {
       const res = await apiService.getGlobalChatMessages(token, 1)
       if (!cancelled && res.success && res.metadata) {
+        const m = res.metadata
         dispatch(
           setChatStatus({
-            unreadMessages: res.metadata.unread_messages_count ?? 0,
-            friendRequests: res.metadata.friend_requests_count ?? 0,
-            onlineCount: res.metadata.online_count ?? 0,
+            unreadMessages: Number.isFinite(m.unread) ? m.unread : 0,
+            unreadGlobal: Number.isFinite(m.unreadGlobal) ? m.unreadGlobal : 0,
+            unreadPrivate: Number.isFinite(m.unreadPrivate) ? m.unreadPrivate : 0,
+            friendRequests: Number.isFinite(m.requests) ? m.requests : 0,
+            onlineCount: Number.isFinite(m.online) ? m.online : 0,
           })
         )
       }
@@ -126,22 +127,31 @@ const Navbar = ({ onStart: _onStart }: Props) => {
     }
   }, [isAuthenticated, token, dispatch, current])
 
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
+
   return (
     <header className="fixed left-0 right-0 top-0 z-20 w-full font-sans">
       <div className="w-full bg-[#1e40af] shadow-lg shadow-black/25 border-b border-[#0b2a6c]">
-        <div className="mx-auto flex w-full max-w-screen-2xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-screen-2xl items-center justify-between px-[clamp(0.875rem,2vw,1.75rem)] py-2.5 sm:py-3">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-white/15 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.15)]">
-              <img src={triviaLogoPng} alt="" className="h-9 w-9 object-contain" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-white/15 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.15)] sm:h-11 sm:w-11">
+              <img src={triviaLogoPng} alt="" className="h-7 w-7 object-contain sm:h-9 sm:w-9" />
             </div>
-            <div className="font-display text-2xl font-bold text-white drop-shadow-glow">Trivia Coin</div>
+            <div className="type-display min-w-0 truncate sm:whitespace-normal">Trivia Coin</div>
           </div>
 
-          <nav className="hidden items-center gap-6 font-semibold text-white lg:gap-8 md:flex">
+          <nav className="hidden min-w-0 flex-wrap items-center justify-center gap-3 font-semibold text-white md:flex lg:gap-4 xl:gap-5">
             <button
               type="button"
               onClick={() => startTour({ force: true })}
-              className="text-xs font-bold uppercase tracking-wide text-white/70 hover:text-[#ffd66b]"
+              className="type-nav text-white/70 hover:text-[#ffd66b]"
             >
               Tour
             </button>
@@ -151,12 +161,12 @@ const Navbar = ({ onStart: _onStart }: Props) => {
                 <motion.button
                   key={item.label}
                   whileHover={{ y: -2, scale: 1.03 }}
-                  className={`relative text-sm tracking-wide ${active ? 'text-[#ffd66b] drop-shadow-glow' : ''}`}
+                  className={`type-nav relative min-w-0 ${active ? 'text-[#ffd66b] drop-shadow-glow' : ''}`}
                   onClick={() => dispatch(navigate(item.page))}
                 >
                   {item.label}
                   {item.page === 'chats' && (chatStatus.unreadMessages > 0 || chatStatus.friendRequests > 0) && (
-                    <span className="absolute -right-2.5 -top-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-1 ring-white/20">
+                    <span className="absolute -right-2.5 -top-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-fluid-2xs font-bold text-white shadow-sm ring-1 ring-white/20">
                       {chatStatus.unreadMessages + chatStatus.friendRequests}
                     </span>
                   )}
@@ -170,14 +180,14 @@ const Navbar = ({ onStart: _onStart }: Props) => {
               <div className="flex items-center gap-4 px-4 py-2 rounded-2xl bg-white/10 border border-white/20 shadow-inner backdrop-blur-md">
                 <div className="flex items-center gap-2">
                   <img src={gemPng} alt="Gems" className="h-5 w-5 object-contain drop-shadow-glow" />
-                  <span className="text-sm font-black text-white tabular-nums tracking-tighter">
+                  <span className="text-fluid-sm font-black text-white tabular-nums tracking-tighter">
                     {gems.toLocaleString()}
                   </span>
                 </div>
                 <div className="w-px h-4 bg-white/20" />
                 <div className="flex items-center gap-2">
                   <img src={tpcoinPng} alt="TPCoins" className="h-5 w-5 object-contain drop-shadow-glow" />
-                  <span className="text-sm font-black text-[#ffd66b] tabular-nums tracking-tighter">
+                  <span className="text-fluid-sm font-black text-[#ffd66b] tabular-nums tracking-tighter">
                     {tpcoins.toLocaleString()}
                   </span>
                 </div>
@@ -205,7 +215,7 @@ const Navbar = ({ onStart: _onStart }: Props) => {
             ) : (
               <Button
                 variant="primary"
-                className="px-6 py-2.5 text-sm rounded-full"
+                className="px-5 py-2 text-fluid-sm sm:px-6 sm:py-2.5 rounded-full"
                 onClick={() => dispatch(openModal('signin'))}
               >
                 Sign In
@@ -213,21 +223,21 @@ const Navbar = ({ onStart: _onStart }: Props) => {
             )}
           </div>
 
-          <div className="flex items-center gap-2 md:hidden sm:gap-3">
+          <div className="flex items-center gap-1.5 md:hidden sm:gap-2">
             {(isAuthenticated && current !== 'home') ? (
-              <div className="flex items-center gap-3 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 shadow-inner backdrop-blur-md">
-                <div className="flex items-center gap-1.5">
-                  <img src={gemPng} alt="" className="h-4 w-4 object-contain" />
-                  <span className="text-[11px] font-black text-white tabular-nums">{gems.toLocaleString()}</span>
+              <div className="flex max-w-[9rem] items-center gap-2 px-2 py-1.5 rounded-xl bg-white/10 border border-white/20 shadow-inner backdrop-blur-md xs:max-w-none xs:gap-3 xs:px-3">
+                <div className="flex min-w-0 items-center gap-1 xs:gap-1.5">
+                  <img src={gemPng} alt="" className="h-4 w-4 shrink-0 object-contain" />
+                  <span className="truncate text-fluid-xs font-black text-white tabular-nums">{gems.toLocaleString()}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <img src={tpcoinPng} alt="" className="h-4 w-4 object-contain" />
-                  <span className="text-[11px] font-black text-[#ffd66b] tabular-nums">{tpcoins.toLocaleString()}</span>
+                <div className="flex min-w-0 items-center gap-1 xs:gap-1.5">
+                  <img src={tpcoinPng} alt="" className="h-4 w-4 shrink-0 object-contain" />
+                  <span className="truncate text-fluid-xs font-black text-[#ffd66b] tabular-nums">{tpcoins.toLocaleString()}</span>
                 </div>
               </div>
             ) : null}
             <button
-              className="text-white p-1"
+              className="touch-target rounded-lg text-white"
               aria-label="Toggle menu"
               onClick={() => setOpen((o) => !o)}
             >
@@ -239,13 +249,23 @@ const Navbar = ({ onStart: _onStart }: Props) => {
 
       <AnimatePresence>
         {open && (
-          <motion.div
-            className="fixed inset-y-0 right-0 z-30 flex w-[min(18rem,88vw)] max-w-[88vw] flex-col space-y-4 bg-[#0b2a6c] p-4 shadow-[ -12px_0_30px_rgba(0,0,0,0.35)] sm:p-6 md:hidden"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-          >
-            <button className="self-end text-white text-xl" onClick={() => setOpen(false)}>
+          <>
+            <motion.button
+              type="button"
+              aria-label="Close menu"
+              className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm md:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setOpen(false)}
+            />
+            <motion.div
+              className="fixed inset-y-0 right-0 z-40 flex w-[min(18rem,88vw)] max-w-[88vw] flex-col space-y-3 overflow-y-auto overscroll-contain bg-[#0b2a6c] p-4 shadow-[-12px_0_30px_rgba(0,0,0,0.35)] sm:space-y-4 sm:p-6 md:hidden"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+            >
+            <button className="touch-target self-end rounded-lg text-white text-fluid-xl" onClick={() => setOpen(false)}>
               ✕
             </button>
             <button
@@ -254,7 +274,7 @@ const Navbar = ({ onStart: _onStart }: Props) => {
                 startTour({ force: true })
                 setOpen(false)
               }}
-              className="rounded-xl bg-white/10 px-4 py-3 text-left text-sm font-semibold text-[#ffd66b]"
+              className="rounded-xl bg-white/10 px-4 py-3 text-left type-nav-mobile text-[#ffd66b]"
             >
               Replay welcome tour
             </button>
@@ -263,7 +283,7 @@ const Navbar = ({ onStart: _onStart }: Props) => {
               return (
                 <button
                   key={item.label}
-                  className={`relative w-full rounded-xl px-4 py-3 text-left font-semibold ${active ? 'bg-white/15 text-[#ffd66b]' : 'bg-white/10 text-white'}`}
+                  className={`type-nav-mobile relative w-full rounded-xl px-4 py-3 text-left font-semibold ${active ? 'bg-white/15 text-[#ffd66b]' : 'bg-white/10 text-white'}`}
                   onClick={() => {
                     dispatch(navigate(item.page))
                     setOpen(false)
@@ -271,7 +291,7 @@ const Navbar = ({ onStart: _onStart }: Props) => {
                 >
                   {item.label}
                   {item.page === 'chats' && (chatStatus.unreadMessages > 0 || chatStatus.friendRequests > 0) && (
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white shadow-sm ring-1 ring-white/20">
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-fluid-2xs font-bold text-white shadow-sm ring-1 ring-white/20">
                       {chatStatus.unreadMessages + chatStatus.friendRequests}
                     </span>
                   )}
@@ -301,6 +321,7 @@ const Navbar = ({ onStart: _onStart }: Props) => {
               </Button>
             )}
           </motion.div>
+          </>
         )}
       </AnimatePresence>
 

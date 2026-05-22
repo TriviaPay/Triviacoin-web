@@ -32,6 +32,8 @@ type UIState = {
   supportModalOpen: boolean
   chatStatus: {
     unreadMessages: number
+    unreadGlobal: number
+    unreadPrivate: number
     friendRequests: number
     onlineCount: number
   }
@@ -65,6 +67,8 @@ const initialState: UIState = {
   supportModalOpen: false,
   chatStatus: {
     unreadMessages: 0,
+    unreadGlobal: 0,
+    unreadPrivate: 0,
     friendRequests: 0,
     onlineCount: 0,
   },
@@ -144,11 +148,8 @@ const uiSlice = createSlice({
     setSupportModalOpen: (state, action: { payload: boolean }) => {
       state.supportModalOpen = action.payload
     },
-    setChatStatus: (
-      state,
-      action: { payload: { unreadMessages: number; friendRequests: number; onlineCount: number } }
-    ) => {
-      state.chatStatus = action.payload
+    setChatStatus: (state, action: { payload: Partial<UIState['chatStatus']> }) => {
+      state.chatStatus = { ...state.chatStatus, ...action.payload }
     },
   },
 })

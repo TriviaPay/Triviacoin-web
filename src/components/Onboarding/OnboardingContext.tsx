@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react'
 import { useAppDispatch, useAppSelector } from '../../store/store'
-import { navigate } from '../../store/uiSlice'
+import { navigate, type Page } from '../../store/uiSlice'
 const StepOverlay = lazy(() => import('./StepOverlay'))
 import { ONBOARDING_STEPS } from './onboardingSteps'
 import { hasCompletedOnboarding, markOnboardingComplete, clearOnboardingFlag } from './onboardingStorage'
@@ -55,7 +55,12 @@ function findVisibleTourElement(target: string): HTMLElement | null {
   return null
 }
 
-function useStepTargetRect(target: string | undefined, active: boolean, stepIndex: number) {
+function useStepTargetRect(
+  target: string | undefined,
+  active: boolean,
+  stepIndex: number,
+  currentPage: Page,
+) {
   const [rect, setRect] = useState<Rect | null>(null)
 
   useLayoutEffect(() => {
@@ -82,7 +87,7 @@ function useStepTargetRect(target: string | undefined, active: boolean, stepInde
       window.removeEventListener('scroll', measure, true)
       window.removeEventListener('resize', measure)
     }
-  }, [active, target, stepIndex])
+  }, [active, target, stepIndex, currentPage])
 
   return rect
 }
@@ -97,18 +102,12 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const steps = ONBOARDING_STEPS
   const step = steps[stepIndex] ?? steps[0]
   const target = step.placement === 'center' ? undefined : step.target
-  const targetRect = useStepTargetRect(target, active, stepIndex)
+  const targetRect = useStepTargetRect(target, active, stepIndex, currentPage)
 
-  const ensureHomeForStep = useCallback(
+  const ensurePageForStep = useCallback(
     (idx: number) => {
-      const t = steps[idx]?.target
-      if (
-        t &&
-        ['tour-sidebar-quiz', 'tour-winners', 'tour-start-quiz'].includes(t) &&
-        currentPage !== 'home'
-      ) {
-        dispatch(navigate('home'))
-      }
+      const page: Page = steps[idx]?.page ?? 'home'
+      if (currentPage !== page) dispatch(navigate(page))
     },
     [currentPage, dispatch, steps],
   )
@@ -121,9 +120,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       } else if (hasCompletedOnboarding()) return
       setStepIndex(0)
       setActive(true)
-      ensureHomeForStep(0)
+      ensurePageForStep(0)
     },
-    [dispatch, ensureHomeForStep],
+    [dispatch, ensurePageForStep],
   )
 
   const dismissTour = useCallback(() => {
@@ -148,8 +147,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!active) return
-    ensureHomeForStep(stepIndex)
-  }, [active, stepIndex, ensureHomeForStep])
+    ensurePageForStep(stepIndex)
+  }, [active, stepIndex, ensurePageForStep])
 
   useEffect(() => {
     if (!active) return

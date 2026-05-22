@@ -68,6 +68,12 @@ function resolveTierCta(idx: number, ms: ModesStatusResponse | null, isAuthed: b
   return 'play'
 }
 
+const DESKTOP_FAN_MIN_VW = 1024
+
+function useDesktopFan(vw: number) {
+  return vw >= DESKTOP_FAN_MIN_VW
+}
+
 const DailyChallenges = () => {
   const dispatch = useAppDispatch()
   const active = useAppSelector((s) => s.ui.selectedGameIndex)
@@ -77,9 +83,12 @@ const DailyChallenges = () => {
   const subscriptionPlans = useAppSelector((s) => s.subscriptions.plans)
   const subscriptionsLoading = useAppSelector((s) => s.subscriptions.loading)
   const vw = useViewportWidth()
+  const desktopFan = useDesktopFan(vw)
 
-  const slidePx = Math.round(Math.min(Math.max(vw * 0.08, 16), 46))
-  const rotateDeg = vw < 480 ? 1.5 : vw < 768 ? 2.5 : 4
+  const slidePx = desktopFan
+    ? Math.round(Math.min(Math.max(vw * 0.08, 16), vw >= 1536 ? 46 : vw >= 1280 ? 32 : 22))
+    : 0
+  const rotateDeg = desktopFan ? (vw >= 1536 ? 4 : vw >= 1280 ? 3 : 2.5) : vw < 480 ? 1.5 : vw < 768 ? 2.5 : 4
   const inactiveScale = vw < 400 ? 0.82 : vw < 640 ? 0.85 : 0.9
 
   const [touchStart, setTouchStart] = useState<number | null>(null)
@@ -87,18 +96,15 @@ const DailyChallenges = () => {
   const [playMode, setPlayMode] = useState<TriviaPlayMode | null>(null)
   const [playTierIndex, setPlayTierIndex] = useState<number | null>(null)
   const [autoSlide, setAutoSlide] = useState(true)
+  const [hoverPauseCarousel, setHoverPauseCarousel] = useState(false)
   const scrollerRef = useRef<HTMLDivElement>(null)
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([])
 
   useEffect(() => {
-    if (vw >= 1024 || !scrollerRef.current) return
-    const scroller = scrollerRef.current
-    const cardWidth = vw < 640 ? Math.min(window.innerWidth * 0.88, 280) : 224 // matches card w-[min(88vw,17.5rem)] vs sm:w-56 (224px)
-    const gap = vw < 640 ? 12 : 20 // matches flex gap-3 vs sm:gap-5
-    
-    // Calculate targeted scrollLeft to center the card
-    const scrollAmount = active * (cardWidth + gap)
-    scroller.scrollTo({ left: scrollAmount, behavior: 'smooth' })
-  }, [active, vw])
+    if (desktopFan) return
+    const el = cardRefs.current[active]
+    el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+  }, [active, desktopFan])
 
   useEffect(() => {
     void dispatch(fetchSubscriptionPlans())
@@ -119,14 +125,14 @@ const DailyChallenges = () => {
   }
 
   useEffect(() => {
-    if (!autoSlide) return undefined
+    if (!autoSlide || hoverPauseCarousel) return undefined
     let current = active
     const id = window.setInterval(() => {
       current = (current + 1) % modes.length
       dispatch(setGameIndex(current))
     }, 3200)
     return () => window.clearInterval(id)
-  }, [dispatch, active, autoSlide])
+  }, [dispatch, active, autoSlide, hoverPauseCarousel])
 
   const change = (dir: number) => {
     const next = (active + dir + modes.length) % modes.length
@@ -158,10 +164,10 @@ const DailyChallenges = () => {
   }
 
   return (
-    <section className="section-card relative overflow-hidden rounded-3xl bg-quiz-panel">
+    <section className="section-card relative overflow-x-clip overflow-y-visible rounded-3xl bg-quiz-panel" data-tour="tour-daily-challenge">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-2xl font-display text-white sm:text-3xl">Trivia Challenge</h3>
+          <h3 className="type-section-title text-white text-safe">Trivia Challenge</h3>
           <InfoTooltip content={
             <div className="space-y-2">
               <p>Each game has 10 questions, 30s each, no skips. Pick from Free up to $20 modes.</p>
@@ -184,32 +190,34 @@ const DailyChallenges = () => {
       </div>
 
       {subscriptionsLoading && subscriptionPlans.length === 0 ? (
-        <p className="mb-3 text-center text-sm text-white/60">Loading subscription plans…</p>
+        <p className="mb-3 text-center type-body-sm text-white/60">Loading subscription plans…</p>
       ) : null}
       {!subscriptionsLoading && subscriptionPlans.length === 0 ? (
-        <p className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-sm text-amber-100/90">
+        <p className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center type-body-sm text-amber-100/90">
           Could not load the subscription catalog. Tier pricing may fall back to your account status only.
         </p>
       ) : null}
 
-      <div className="relative -mx-5 px-5 sm:mx-0 sm:px-0" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <div className="relative -mx-3 px-3 sm:mx-0 sm:px-0" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <div 
           ref={scrollerRef}
-          className="flex items-center gap-3 overflow-x-auto overflow-y-visible pb-8 pt-2 snap-x snap-mandatory scrollbar-none sm:gap-5 md:justify-center md:overflow-x-visible px-[20%] sm:px-0"
+          className={`flex items-center gap-3 pb-10 pt-4 sm:gap-4 lg:gap-5 ${
+            desktopFan
+              ? 'justify-center overflow-x-visible overflow-y-visible px-6 lg:px-10 xl:px-12'
+              : 'snap-x snap-mandatory overflow-x-auto overflow-y-visible px-2 scrollbar-hide sm:px-4'
+          }`}
         >
           {modes.map((card, idx) => {
             const offset = idx - active
             const isActive = idx === active
             const z = isActive ? 50 : 20 - Math.abs(offset)
             const scale = isActive ? 1.05 : inactiveScale
-            const rotate = offset * rotateDeg
             const info = getModeInfo(idx, modesStatus)
             const cta = resolveTierCta(idx, modesStatus, auth.isAuthenticated)
             const statusMessage = info?.message?.trim()
             const billableId =
               idx >= 1 ? billableSubscriptionProductId(idx, subscriptionPlans, modesStatus) : null
             const planTitle = card.name
-            const checkoutLabel = `${planTitle} Subscription`
             const currentPrizePool = idx === 1 ? bronzePrizePool : idx === 2 ? silverPrizePool : 0
             const prizePoolLabel = currentPrizePool > 0
               ? currentPrizePool.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -218,18 +226,47 @@ const DailyChallenges = () => {
             const isLockedOrComing = card.locked || card.comingSoon
             const isExpired = statusMessage?.toLowerCase().includes('expired')
 
+            const mobileOpacity = isActive ? 1 : Math.abs(offset) === 1 ? 0.4 : 0
+
             return (
               <motion.div
                 key={card.name}
-                className="flex w-[min(88vw,17.5rem)] max-w-[min(88vw,17.5rem)] shrink-0 snap-center cursor-pointer flex-col items-stretch sm:w-64 sm:max-w-none md:w-56 lg:w-56"
+                ref={(el) => {
+                  cardRefs.current[idx] = el
+                }}
+                className="group/card flex w-[min(88vw,17.5rem)] max-w-[min(88vw,17.5rem)] shrink-0 snap-center cursor-pointer flex-col items-stretch sm:w-56 md:w-52 lg:w-48 xl:w-52 2xl:w-56"
                 style={{ zIndex: z }}
                 animate={{
                   scale,
-                  rotate,
-                  opacity: vw < 1024 ? (isActive ? 1 : 0) : (isLockedOrComing ? 0.5 : 1),
-                  x: vw < 1024 ? 0 : offset * slidePx,
+                  rotate: desktopFan ? offset * rotateDeg : 0,
+                  opacity: desktopFan ? (isLockedOrComing ? 0.5 : 1) : mobileOpacity,
+                  x: desktopFan ? offset * slidePx : 0,
+                  y: isActive && desktopFan && !hoverPauseCarousel ? [0, -7, 0] : 0,
                 }}
-                transition={{ type: 'spring', stiffness: vw < 1024 ? 140 : 120, damping: vw < 1024 ? 16 : 12 }}
+                transition={{
+                  scale: { type: 'spring', stiffness: desktopFan ? 120 : 140, damping: desktopFan ? 12 : 16 },
+                  rotate: { type: 'spring', stiffness: desktopFan ? 120 : 140, damping: desktopFan ? 12 : 16 },
+                  x: { type: 'spring', stiffness: desktopFan ? 120 : 140, damping: desktopFan ? 12 : 16 },
+                  opacity: { duration: 0.35 },
+                  y:
+                    isActive && desktopFan && !hoverPauseCarousel
+                      ? { repeat: Infinity, duration: 2.8, ease: 'easeInOut' }
+                      : { duration: 0.25 },
+                }}
+                whileHover={
+                  desktopFan
+                    ? {
+                        scale: isActive ? 1.08 : inactiveScale + 0.05,
+                        y: -8,
+                        transition: { duration: 0.2 },
+                      }
+                    : { y: -4, scale: isActive ? 1.06 : inactiveScale + 0.03, transition: { duration: 0.2 } }
+                }
+                onMouseEnter={() => {
+                  setHoverPauseCarousel(true)
+                  if (desktopFan && idx !== active) dispatch(setGameIndex(idx))
+                }}
+                onMouseLeave={() => setHoverPauseCarousel(false)}
                 onClick={() => {
                   if (!isActive) {
                     dispatch(setGameIndex(idx))
@@ -240,7 +277,11 @@ const DailyChallenges = () => {
                 }}
               >
                 <div 
-                  className={`relative h-[13.5rem] min-h-[13.5rem] snap-center rounded-3xl border ${isActive ? 'border-[#ffd66b] shadow-[0_0_25px_rgba(255,214,107,0.3)]' : 'border-white/15'} p-4 text-center shadow-[0_16px_30px_rgba(0,0,0,0.25)] perspective-1000 sm:h-56 sm:min-h-[14rem] transition-colors duration-300`}
+                  className={`relative h-[13.5rem] min-h-[13.5rem] snap-center rounded-3xl border p-4 text-center shadow-[0_16px_30px_rgba(0,0,0,0.25)] perspective-1000 transition-all duration-300 sm:h-56 sm:min-h-[14rem] ${
+                    isActive
+                      ? 'border-[#ffd66b] shadow-[0_0_25px_rgba(255,214,107,0.35)]'
+                      : 'border-white/15 group-hover/card:border-[#ffd66b]/55 group-hover/card:shadow-[0_0_22px_rgba(255,214,107,0.22)]'
+                  }`}
                 >
                   {isActive && !isLockedOrComing && (
                     <div className="absolute right-4 top-4 z-[30] pointer-events-none opacity-80">
@@ -257,13 +298,13 @@ const DailyChallenges = () => {
                     animate={{ rotateY: flipped && isActive && !isLockedOrComing ? 180 : 0 }}
                     transition={{ duration: 0.6 }}
                   >
-                    <h4 className="font-display text-xl leading-tight sm:text-2xl">{planTitle}</h4>
+                    <h4 className="type-card-title leading-tight text-safe">{planTitle}</h4>
                     {/* Prize pool label moved to badge section */}
                     {idx === 0 && (
-                      <p className="mt-1 text-[11px] font-medium text-emerald-100/90">Free Access</p>
+                      <p className="mt-1 type-body-sm font-medium text-emerald-100/90">Free Access</p>
                     )}
                     {info?.task_completed && (
-                      <p className="mt-1 text-[11px] font-black text-white drop-shadow-md uppercase tracking-wider">Challenge Complete</p>
+                      <p className="mt-1 type-caption font-black text-white drop-shadow-md uppercase tracking-wider">Challenge Complete</p>
                     )}
                     
                     {isLockedOrComing && (
@@ -289,9 +330,9 @@ const DailyChallenges = () => {
                         )}
                         {prizePoolLabel ? (
                           <div className="mt-1 flex flex-col items-center justify-center gap-0.5">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/70">Prize Pool</span>
+                            <span className="type-caption font-bold uppercase tracking-widest text-white/70">Prize Pool</span>
                             <div className="flex items-center gap-1.5 px-1 py-0.5">
-                              <span className="text-xs font-black text-[#ffd66b] sm:text-sm whitespace-nowrap drop-shadow-sm">{prizePoolLabel}</span>
+                              <span className="text-fluid-xs font-black text-[#ffd66b] sm:text-fluid-sm min-w-0 truncate drop-shadow-sm">{prizePoolLabel}</span>
                               <img src={tpcoinPng} alt="" className="h-4 w-4 sm:h-5 sm:w-5 object-contain" />
                             </div>
                           </div>
@@ -300,13 +341,13 @@ const DailyChallenges = () => {
 
                     </div>
                     {card.comingSoon ? (
-                      <Button className="mt-3 w-full py-2.5 text-sm font-black uppercase tracking-[0.05em] shadow-lg" disabled>
+                      <Button className="mt-3 w-full py-2.5 font-black uppercase tracking-[0.05em] shadow-lg" disabled>
                         Coming Soon
                       </Button>
                     ) : cta === 'subscribe' || isExpired ? (
                       <div className="mt-auto pt-3">
                         <Button
-                          className="w-full py-2.5 text-sm font-bold shadow-lg"
+                          className="w-full py-2.5 font-bold shadow-lg"
                           disabled={!billableId}
                           onClick={(e) => {
                             e.stopPropagation()
@@ -324,8 +365,8 @@ const DailyChallenges = () => {
                                 label,
                                 paymentRoute: 'subscription',
                                 cancelReturnPage: 'daily',
-                                iconUrl: card.badge,
-                                price,
+                                iconUrl: typeof card.badge === 'string' ? card.badge : undefined,
+                                price: price !== undefined ? price : undefined,
                               }),
                             )
                             dispatch(navigate('checkout'))
@@ -336,14 +377,14 @@ const DailyChallenges = () => {
                       </div>
                     ) : cta === 'loading' ? (
                       <div className="mt-auto pt-3">
-                        <Button className="w-full py-2.5 text-sm" disabled>
+                        <Button className="w-full py-2.5" disabled>
                           Loading…
                         </Button>
                       </div>
                     ) : (
                       <div className="mt-auto pt-3">
                         <Button
-                          className="w-full py-2.5 text-sm font-bold shadow-lg"
+                          className="w-full py-2.5 font-bold shadow-lg"
                           onClick={(e) => {
                             e.stopPropagation()
                             if (cta === 'signin') {
@@ -362,8 +403,8 @@ const DailyChallenges = () => {
                                   label: `${card.name} Subscription`,
                                   paymentRoute: 'subscription',
                                   cancelReturnPage: 'daily',
-                                  iconUrl: card.badge,
-                                  price,
+                                  iconUrl: typeof card.badge === 'string' ? card.badge : undefined,
+                                  price: price !== undefined ? price : undefined,
                                 }),
                               )
                               dispatch(navigate('checkout'))
@@ -384,8 +425,8 @@ const DailyChallenges = () => {
                     transition={{ duration: 0.6 }}
                   >
                     <div className="flex-1 flex flex-col justify-center items-center text-center">
-                      <p className="text-sm font-black uppercase tracking-widest text-[#ffd66b] drop-shadow-sm">Description</p>
-                      <p className="mt-2 text-[14px] font-bold leading-relaxed text-white drop-shadow-md">
+                      <p className="type-caption font-black uppercase tracking-widest text-[#ffd66b] drop-shadow-sm">Description</p>
+                      <p className="mt-2 type-body-sm font-bold leading-relaxed text-white drop-shadow-md">
                         {idx === 0 
                           ? "Learn and level up skills"
                           : idx === 5
@@ -393,15 +434,15 @@ const DailyChallenges = () => {
                             : "Daily drop one question daily challenge first come higher rewards"}
                       </p>
                     </div>
-                    <p className="mt-2 shrink-0 text-center text-[10px] font-black uppercase tracking-tighter text-[#ffd66b]/80">
+                    <p className="mt-2 shrink-0 text-center type-caption font-black uppercase tracking-tighter text-[#ffd66b]/80">
                       Tap card to go back
                     </p>
                   </motion.div>
                 </div>
                 {statusMessage && !isExpired ? (
-                  <p className="mt-2 px-1 text-center text-[11px] leading-snug text-white/70 sm:text-xs">{statusMessage}</p>
+                  <p className="mt-2 px-1 text-center type-body-sm leading-snug text-white/70">{statusMessage}</p>
                 ) : isExpired ? (
-                   <p className="mt-2 px-1 text-center text-[11px] leading-snug text-red-300 font-bold sm:text-xs">Subscription expired. Tap Play to renew!</p>
+                   <p className="mt-2 px-1 text-center type-body-sm leading-snug text-red-300 font-bold">Subscription expired. Tap Play to renew!</p>
                 ) : null}
               </motion.div>
             )
@@ -426,7 +467,7 @@ const DailyChallenges = () => {
       ) : null}
 
       {!auth.isAuthenticated ? (
-        <p className="mt-4 text-center text-sm text-white/70">
+        <p className="mt-4 text-center type-body-sm text-white/70">
           Tap <span className="font-semibold text-white/90">Play</span> on Free to sign in, or sign in on paid cards to subscribe and unlock $5–$20 modes.
         </p>
       ) : null}

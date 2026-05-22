@@ -135,9 +135,12 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
   }
 
   return (
-    <section className="section-card relative mx-auto w-full max-w-xl rounded-3xl bg-quiz-panel text-white sm:max-w-2xl md:max-w-3xl">
+    <section
+      className="section-card relative mx-auto w-full max-w-xl rounded-3xl bg-quiz-panel text-white sm:max-w-2xl md:max-w-3xl"
+      data-tour="tour-leaderboard"
+    >
       <div className="mb-6 flex flex-col items-center gap-4">
-        <h3 className="text-2xl sm:text-3xl font-display">Leaderboard</h3>
+        <h3 className="type-section-title text-safe">Leaderboard</h3>
         <div className="mx-auto flex w-full max-w-[300px] items-center justify-center gap-2 rounded-full bg-white/10 p-1 sm:max-w-sm">
           {tabs.map((t) => {
             const active = t.key === tier
@@ -146,7 +149,7 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
                 key={t.key}
                 type="button"
                 whileTap={{ scale: 0.96 }}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold sm:gap-2 sm:px-4 ${
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-fluid-sm font-semibold sm:gap-2 sm:px-4 sm:text-fluid-base ${
                   active ? 'bg-gradient-to-b from-[#ffd66b] to-[#f3a011] text-[#7c4c00]' : 'text-white/80'
                 }`}
                 onClick={() => dispatch(setLeaderboardTier(t.key))}
@@ -159,7 +162,7 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
         </div>
       </div>
 
-      <div className="scrollbar-overlay mx-auto max-h-[55vh] min-h-[400px] w-full max-w-xl overflow-y-auto overflow-x-hidden px-1 sm:px-0">
+      <div className="scrollbar-overlay mx-auto max-h-[55vh] min-h-[240px] w-full max-w-xl overflow-y-auto overflow-x-hidden px-1 sm:min-h-[320px] md:min-h-[400px] sm:px-0">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#ffd66b] border-t-transparent" />
@@ -168,12 +171,12 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
           <div className="py-8 text-center text-white/80">
             <p>{error}</p>
             {!isAuthenticated && error.includes('unavailable') && (
-              <p className="mt-1 text-sm text-white/60">Sign in to view the leaderboard</p>
+              <p className="mt-1 type-body-sm text-white/60">Sign in to view the leaderboard</p>
             )}
             <button
               type="button"
               onClick={() => refetch(true)}
-              className="mt-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold"
+              className="mt-2 rounded-lg bg-white/15 px-4 py-2 type-body-sm font-semibold"
             >
               Try Again
             </button>
@@ -206,7 +209,7 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
                   animate={{ opacity: 1, y: 0 }}
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-semibold tabular-nums">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 type-body-sm font-semibold tabular-nums">
                       {idx + 1}
                     </div>
                     <img
@@ -221,7 +224,7 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
                     />
                     <span className="truncate font-semibold">{row.name}</span>
                   </div>
-                  <span className="flex shrink-0 items-center gap-1.5 pl-2 font-display text-lg tabular-nums">
+                  <span className="flex shrink-0 items-center gap-1.5 pl-2 font-display text-fluid-base tabular-nums sm:text-fluid-lg">
                     {row.score}
                     <img src={tpcoinPng} alt="" className="h-5 w-5 object-contain sm:h-6 sm:w-6" />
                   </span>
@@ -260,7 +263,7 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
               )
               dispatch(navigate('checkout'))
             }}
-            className="rounded-xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] px-6 py-2.5 text-base font-bold text-[#7c4c00] shadow-xl transition hover:brightness-110 w-full sm:w-auto sm:px-8 sm:py-3 sm:text-lg"
+            className="rounded-xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] px-6 py-2.5 text-fluid-base font-bold text-[#7c4c00] shadow-xl transition hover:brightness-110 w-full sm:w-auto sm:px-8 sm:py-3 sm:text-fluid-lg"
           >
             {tier === 'bronze' ? 'Subscribe to Rookie Mode' : 'Subscribe to Scholar Mode'}
           </motion.button>
@@ -270,7 +273,7 @@ const tabs: Array<{ key: LeaderboardTier; label: string; icon: string }> = [
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => dispatch(setReferralModalOpen(true))}
-            className="rounded-xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] px-6 py-2.5 text-base font-bold text-[#7c4c00] shadow-xl transition hover:brightness-110 w-full sm:w-auto sm:px-8 sm:py-3 sm:text-lg"
+            className="rounded-xl bg-gradient-to-b from-[#ffd66b] to-[#f3a011] px-6 py-2.5 text-fluid-base font-bold text-[#7c4c00] shadow-xl transition hover:brightness-110 w-full sm:w-auto sm:px-8 sm:py-3 sm:text-fluid-lg"
           >
             Refer a Friend
           </motion.button>

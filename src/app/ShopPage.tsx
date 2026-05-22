@@ -42,23 +42,26 @@ const ShopPage = () => {
   }, [activeTab, dispatch])
 
   const items: ShopCatalogItem[] = activeTab === 'gems' ? gemPackages.items : cosmetics.items
-  const status = activeTab === 'gems' ? gemPackages.status : cosmetics.status
-  const error = activeTab === 'gems' ? gemPackages.error : cosmetics.error
+  const catalogLoading = activeTab === 'gems' ? gemPackages.loading : cosmetics.loading
+  const catalogError = activeTab === 'gems' ? gemPackages.error : cosmetics.error
 
-  const showLoading = status === 'loading' && items.length === 0
-  const showError = status === 'failed' && items.length === 0
+  const showLoading = catalogLoading && items.length === 0
+  const showError = Boolean(catalogError) && items.length === 0
 
   return (
-    <section className="section-card rounded-3xl bg-quiz-panel text-white">
-      <div className="mx-auto w-full max-w-4xl space-y-4 sm:space-y-6">
+    <section
+      className="section-card relative mx-auto w-full max-w-xl rounded-3xl bg-quiz-panel p-0 text-white sm:max-w-2xl md:max-w-3xl"
+      data-tour="tour-shop"
+    >
+      <div className="mx-auto w-full max-w-xl space-y-4 px-3 pb-6 pt-4 sm:space-y-6 sm:px-5 sm:pb-8 sm:pt-5 md:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-2xl sm:text-3xl font-display">Shop</h2>
+            <h2 className="type-section-title text-safe">Shop</h2>
             <InfoTooltip content="Gem packs and avatars — purchase on checkout with Stripe or PayPal. Trivia subscriptions are on Trivia Challenge." />
           </div>
           <div className="flex shrink-0 items-center gap-2 self-start rounded-2xl border border-white/15 bg-white/10 px-4 py-2 sm:self-center">
             <img src={diamondImg} alt="" className="h-7 w-7 object-contain sm:h-8 sm:w-8" aria-hidden />
-            <span className="font-display text-xl tabular-nums text-[#ffd66b] sm:text-2xl">
+            <span className="text-fluid-xl sm:text-fluid-2xl font-display tabular-nums text-[#ffd66b] text-safe">
               {typeof gems === 'number' ? gems : 0}
             </span>
           </div>
@@ -68,7 +71,7 @@ const ShopPage = () => {
           <button
             type="button"
             onClick={() => setActiveTab('gems')}
-            className={`rounded-full px-6 py-2.5 text-sm font-semibold transition ${
+            className={`rounded-full px-4 py-2.5 text-fluid-sm font-semibold transition sm:px-6 sm:text-fluid-base ${
               activeTab === 'gems'
                 ? 'bg-gradient-to-b from-[#ffd66b] to-[#f3a011] text-[#7c4c00] shadow-glow'
                 : 'bg-white/15 text-white/70 hover:bg-white/20'
@@ -79,7 +82,7 @@ const ShopPage = () => {
           <button
             type="button"
             onClick={() => setActiveTab('avatars')}
-            className={`rounded-full px-6 py-2.5 text-sm font-semibold transition ${
+            className={`rounded-full px-4 py-2.5 text-fluid-sm font-semibold transition sm:px-6 sm:text-fluid-base ${
               activeTab === 'avatars'
                 ? 'bg-gradient-to-b from-[#ffd66b] to-[#f3a011] text-[#7c4c00] shadow-glow'
                 : 'bg-white/15 text-white/70 hover:bg-white/20'
@@ -90,7 +93,7 @@ const ShopPage = () => {
         </div>
 
         {!isAuthenticated && (
-          <p className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/75">
+          <p className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 type-body-sm text-white/75">
             Sign in to load your gem balance and shop catalog from the server.
           </p>
         )}
@@ -98,14 +101,14 @@ const ShopPage = () => {
         {showLoading && (
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-white/80">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#ffd66b] border-t-transparent" />
-            <p className="text-sm sm:text-base">Loading shop…</p>
+            <p className="type-body-sm sm:text-fluid-base">Loading shop…</p>
           </div>
         )}
 
         {showError && (
           <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-6 text-center">
             <p className="font-semibold text-red-100">Could not load items</p>
-            {error && <p className="mt-2 text-sm text-red-100/80">{error}</p>}
+            {catalogError && <p className="mt-2 type-body-sm text-red-100/80">{catalogError}</p>}
             <button
               type="button"
               onClick={() => {
@@ -114,7 +117,7 @@ const ShopPage = () => {
                 if (activeTab === 'gems') void dispatch(fetchGemPackages())
                 else void dispatch(fetchCosmetics())
               }}
-              className="mt-4 rounded-full bg-white/20 px-5 py-2 text-sm font-semibold text-white hover:bg-white/30"
+              className="mt-4 rounded-full bg-white/20 px-5 py-2 text-fluid-sm font-semibold text-white hover:bg-white/30"
             >
               Retry
             </button>
@@ -122,13 +125,13 @@ const ShopPage = () => {
         )}
 
         {!showLoading && !showError && items.length === 0 && (
-          <p className="py-12 text-center text-sm text-white/70 sm:text-base">
+          <p className="py-12 text-center type-body-sm text-white/70 sm:text-fluid-base">
             {activeTab === 'gems' ? 'No gem packages available yet.' : 'No avatars available yet.'}
           </p>
         )}
 
         {items.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {items.map((item) => (
               <ShopItemCard key={`${item.type}-${item.id}`} item={item} tab={activeTab} />
             ))}

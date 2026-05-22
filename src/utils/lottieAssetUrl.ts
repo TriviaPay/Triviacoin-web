@@ -5,7 +5,6 @@
  */
 
 const TRIVIAPAY_ASSETS_HOST = 'triviapay-assets.s3.us-east-2.amazonaws.com'
-const PROXY_PREFIX = '/__proxy/triviapay-assets'
 
 export function getLottieJsonFetchUrl(originalUrl: string): string {
   if (!originalUrl || typeof originalUrl !== 'string') return originalUrl

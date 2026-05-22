@@ -66,7 +66,7 @@ const ReferralModal = ({ visible, onClose }: Props) => {
       aria-label="Close"
     >
       <div
-        className="relative w-full max-w-md rounded-2xl bg-gradient-to-b from-[#1e3a8a] to-[#0c3c89] p-6 text-white shadow-2xl border border-white/20"
+        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-gradient-to-b from-[#1e3a8a] to-[#0c3c89] p-4 text-white shadow-2xl border border-white/20 sm:p-6"
         onClick={(e) => e.stopPropagation()}
         role="presentation"
       >
@@ -80,11 +80,11 @@ const ReferralModal = ({ visible, onClose }: Props) => {
           </svg>
         </button>
 
-        <h3 className="font-display text-2xl font-bold text-center mb-2 text-[#ffd66b]">
+        <h3 className="type-modal-title font-bold text-center mb-2 text-[#ffd66b] text-safe">
           Refer a Friend
         </h3>
 
-        <p className="text-white/80 text-center text-sm mb-6">
+        <p className="text-white/80 text-center type-body-sm mb-6">
           Share your referral code and earn rewards when friends join!
         </p>
 
@@ -95,18 +95,18 @@ const ReferralModal = ({ visible, onClose }: Props) => {
         ) : (
           <>
             <div className="mb-6 flex flex-col items-center justify-center rounded-xl bg-white/10 border border-white/20 p-4">
-              <span className="text-xs uppercase tracking-wider text-white/60 mb-1">Your Code</span>
-              <span className="text-3xl font-black tracking-widest text-[#ffd66b]">
+              <span className="type-caption uppercase tracking-wider text-white/60 mb-1">Your Code</span>
+              <span className="text-fluid-3xl font-black tracking-widest text-[#ffd66b] break-all">
                 {referralCode || '-------'}
               </span>
             </div>
 
-            <div className="flex gap-2 mb-4">
+            <div className="flex flex-col gap-2 mb-4 sm:flex-row">
               <input
                 type="text"
                 readOnly
                 value={referralLink}
-                className="flex-1 rounded-xl bg-white/10 border border-white/20 px-3 py-2.5 text-sm text-white truncate"
+                className="input-field flex-1 !rounded-xl truncate"
               />
               <Button onClick={handleCopy} className="px-4 py-2.5 shrink-0">
                 {copied ? 'Copied!' : 'Copy'}

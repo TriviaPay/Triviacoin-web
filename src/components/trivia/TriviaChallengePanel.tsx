@@ -1,6 +1,14 @@
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type TouchEvent as ReactTouchEvent,
+} from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useAppDispatch, useAppSelector, type AppDispatch } from '../../store/store'
+import { useAppDispatch, useAppSelector, store, type AppDispatch } from '../../store/store'
 import {
   clearSubmissionResult,
   clearTriviaError,
@@ -11,7 +19,10 @@ import {
   fetchFreeModeStatus,
   fetchSilverModeQuestion,
   fetchSilverModeStatus,
+  freeQuestionAlreadyAttempted,
   isFreeModeComplete,
+  jumpToFreeSheetQuestion,
+  mergeFreeQuestionWithDailyList,
   resetTriviaUi,
   setCurrentMode,
   setSelectedAnswer,
@@ -26,7 +37,6 @@ import Button from '../ui/Button'
 import OptionButton from '../quiz/OptionButton'
 import type { OptionState } from '../quiz/OptionButton'
 import TriviaResultModal from './TriviaResultModal'
-import FreeModeCompleteModal, { FreeModeSummaryList } from './FreeModeCompleteModal'
 import type { TriviaTierMeta } from '../../utils/triviaTierMeta'
 
 export type TriviaPlayMode = 'free' | 'bronze' | 'silver' | 'gold' | 'platinum'
@@ -108,7 +118,6 @@ export default function TriviaChallengePanel({
   const uiModeName = useAppSelector((s) => s.ui.selectedModeName)
 
   const [initialized, setInitialized] = useState(false)
-  const [showFreeComplete, setShowFreeComplete] = useState(false)
   const [freeModeReviewMode, setFreeModeReviewMode] = useState(false)
   const [freeModeReviewIndex, setFreeModeReviewIndex] = useState(0)
   const [showResultModal, setShowResultModal] = useState(false)
@@ -116,8 +125,8 @@ export default function TriviaChallengePanel({
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   /** True only when review mode was auto-opened before `freeQ` loaded (embed / home layout); cleared when play mode resumes or user opens review intentionally. */
   const reviewAutoOpenedByEmbedRef = useRef(false)
-  /** Home embed: user closed the "daily complete" card — until next day / status resets. */
-  const [embedCompletionDismissed, setEmbedCompletionDismissed] = useState(false)
+  /** Track horizontal swipe start for free-mode replay-locked → next question. */
+  const freeReplaySwipeRef = useRef<{ x: number; y: number } | null>(null)
 
   const freeQ = trivia.currentFreeModeQuestion
   const bronzeQ = trivia.currentBronzeModeQuestion
@@ -149,6 +158,16 @@ export default function TriviaChallengePanel({
     return mapCorrectToId(question as FreeModeQuestion)
   }, [question])
 
+  /** Server (or merged daily list) marks this MCQ answered — reveal correct/wrong only, no second submit. */
+  const freeReplayLocked = useMemo(
+    () =>
+      mode === 'free' &&
+      !freeModeReviewMode &&
+      !!question &&
+      freeQuestionAlreadyAttempted(question as FreeModeQuestion),
+    [mode, freeModeReviewMode, question],
+  )
+
   const progressLabel = useMemo(() => {
     if (mode !== 'free' || !trivia.freeModeStatus?.progress) return null
     const { correct_answers, total_questions } = trivia.freeModeStatus.progress
@@ -165,52 +184,10 @@ export default function TriviaChallengePanel({
     )
   }, [sortedFreeQuestions])
 
-  const freeDailyComplete = useMemo(
-    () => mode === 'free' && isFreeModeComplete(trivia.freeModeStatus),
-    [mode, trivia.freeModeStatus],
-  )
-
-  /** Non-embed: driven by showFreeComplete. Home embed: also show completion when status is complete even if showFreeComplete was cleared (fixes blank sidebar after 3 questions). */
-  const showCompletionModal = useMemo(() => {
-    if (!embedOnHome) return showFreeComplete
-    return showFreeComplete || (freeDailyComplete && !embedCompletionDismissed)
-  }, [embedOnHome, showFreeComplete, freeDailyComplete, embedCompletionDismissed])
-
-  /** No current question but we have a question list — show “attempts today” inline (no extra click). */
-  const showInlineFreeSummary = useMemo(() => {
-    if (embedOnHome || useHomeQuizLayout) return false
-    if (mode !== 'free' || !initialized || trivia.loading) return false
-    if (showCompletionModal) return false
-    if (freeQ) return false
-    if (sortedFreeQuestions.length === 0) return false
-    if (isFreeModeComplete(trivia.freeModeStatus)) return false
-    if (freeModeReviewMode) return false
-    return true
-  }, [
-    mode,
-    initialized,
-    trivia.loading,
-    showCompletionModal,
-    freeQ,
-    sortedFreeQuestions.length,
-    trivia.freeModeStatus,
-    freeModeReviewMode,
-    embedOnHome,
-    useHomeQuizLayout,
-  ])
-
-  /** Reset completion dismiss when a new free day / incomplete status arrives. */
-  useEffect(() => {
-    if (mode === 'free' && !isFreeModeComplete(trivia.freeModeStatus)) {
-      setEmbedCompletionDismissed(false)
-    }
-  }, [mode, trivia.freeModeStatus])
-
-  /** Home embed (and daily home-style layout): same API state as inline summary, but go straight to option-based review (no list block). */
+  /** Home embed / daily chrome: no `/current` yet — jump into option-card review instead of summary lists or modals. */
   useEffect(() => {
     if (!embedOnHome && !useHomeQuizLayout) return
     if (mode !== 'free' || !initialized || trivia.loading) return
-    if (showCompletionModal) return
     if (freeQ) return
     if (sortedFreeQuestions.length === 0) return
     if (isFreeModeComplete(trivia.freeModeStatus)) return
@@ -224,7 +201,31 @@ export default function TriviaChallengePanel({
     mode,
     initialized,
     trivia.loading,
-    showCompletionModal,
+    freeQ,
+    sortedFreeQuestions.length,
+    trivia.freeModeStatus,
+    freeModeReviewMode,
+    dispatch,
+    useHomeQuizLayout,
+  ])
+
+  /** Desktop / trivia page: mirror embed — MCQ-only review rows, never the text “Your answers” list. */
+  useEffect(() => {
+    if (embedOnHome || useHomeQuizLayout) return
+    if (mode !== 'free' || !initialized || trivia.loading) return
+    if (freeQ) return
+    if (sortedFreeQuestions.length === 0) return
+    if (isFreeModeComplete(trivia.freeModeStatus)) return
+    if (freeModeReviewMode) return
+    dispatch(clearTriviaError())
+    reviewAutoOpenedByEmbedRef.current = false
+    setFreeModeReviewMode(true)
+    setFreeModeReviewIndex(0)
+  }, [
+    embedOnHome,
+    mode,
+    initialized,
+    trivia.loading,
     freeQ,
     sortedFreeQuestions.length,
     trivia.freeModeStatus,
@@ -271,7 +272,10 @@ export default function TriviaChallengePanel({
           if (isFreeModeComplete(status)) {
             await openFreeCompletionFlow(dispatch)
             if (cancelled) return
-            setShowFreeComplete(true)
+            reviewAutoOpenedByEmbedRef.current = false
+            setFreeModeReviewMode(true)
+            setFreeModeReviewIndex(0)
+            if (auth.isAuthenticated) void dispatch(fetchUserGems())
             setInitialized(true)
             return
           }
@@ -285,7 +289,10 @@ export default function TriviaChallengePanel({
             if (cancelled) return
             if (isFreeModeComplete(status)) {
               await openFreeCompletionFlow(dispatch)
-              setShowFreeComplete(true)
+              reviewAutoOpenedByEmbedRef.current = false
+              setFreeModeReviewMode(true)
+              setFreeModeReviewIndex(0)
+              if (auth.isAuthenticated) void dispatch(fetchUserGems())
             } else {
               dispatch(clearTriviaError())
             }
@@ -347,11 +354,28 @@ export default function TriviaChallengePanel({
       const mapped = mapRawToOptionId(fq, fq.fill_in_answer)
       return mapped
     }
+    if (mode === 'free' && !freeModeReviewMode && freeQuestionAlreadyAttempted(question as FreeModeQuestion)) {
+      const fq = question as FreeModeQuestion
+      return mapRawToOptionId(fq, fq.fill_in_answer) ?? trivia.selectedAnswer
+    }
     if (mode === 'free') return trivia.selectedAnswer
     const fill = status?.fill_in_answer ?? (question as BronzeSilverModeQuestion).fill_in_answer
     const mapped = mapRawToOptionId(question as BronzeSilverModeQuestion, fill)
     return mapped ?? trivia.selectedAnswer
   }, [question, mode, freeModeReviewMode, status, trivia.selectedAnswer])
+
+  /** After merge, hydrate selection from saved answer when `/current` had no Redux pick yet. */
+  useEffect(() => {
+    if (mode !== 'free' || freeModeReviewMode || !question) return
+    const fq = question as FreeModeQuestion
+    if (!freeQuestionAlreadyAttempted(fq)) return
+    const id = mapRawToOptionId(fq, fq.fill_in_answer)
+    if (!id) return
+    const opt = fq[`option_${id}` as keyof FreeModeQuestion]
+    const text = typeof opt === 'string' ? opt : ''
+    if (trivia.selectedAnswer === id && trivia.selectedOptionText) return
+    dispatch(setSelectedAnswer({ id, text }))
+  }, [mode, freeModeReviewMode, question, trivia.selectedAnswer, trivia.selectedOptionText, dispatch])
 
   /** Home embed: stale Redux selection from another screen/question locks OptionButtons — clear on question change. */
   const lastEmbedFreeQuestionIdRef = useRef<number | null>(null)
@@ -400,7 +424,9 @@ export default function TriviaChallengePanel({
         const st = await dispatch(fetchFreeModeStatus()).unwrap()
         if (isFreeModeComplete(st)) {
           await openFreeCompletionFlow(dispatch)
-          setShowFreeComplete(true)
+          reviewAutoOpenedByEmbedRef.current = false
+          setFreeModeReviewMode(true)
+          setFreeModeReviewIndex(0)
           dispatch(clearSubmissionResult())
           if (auth.isAuthenticated) void dispatch(fetchUserGems())
           return
@@ -421,19 +447,103 @@ export default function TriviaChallengePanel({
   const handleFreeSelect = useCallback(
     (id: 'a' | 'b' | 'c' | 'd', text: string) => {
       if (!question || trivia.loading || freeModeReviewMode) return
+      if (mode === 'free' && freeQuestionAlreadyAttempted(question as FreeModeQuestion)) return
       if (trivia.isSubmitted) return
       dispatch(setSelectedAnswer({ id, text }))
     },
-    [question, trivia.loading, trivia.isSubmitted, freeModeReviewMode, dispatch]
+    [question, trivia.loading, trivia.isSubmitted, freeModeReviewMode, mode, dispatch]
   )
 
   const handleSubmitFree = useCallback(() => {
     if (mode !== 'free' || freeModeReviewMode) return
     const q = question as FreeModeQuestion | null
+    if (q && freeQuestionAlreadyAttempted(q)) return
     const text = trivia.selectedOptionText
     if (!q || !text || trivia.loading || trivia.isSubmitted) return
     void dispatch(submitFreeModeAnswer({ question_id: q.question_id, answer: text }))
   }, [mode, freeModeReviewMode, question, trivia.selectedOptionText, trivia.loading, trivia.isSubmitted, dispatch])
+
+  /** After viewing a replay-locked (already attempted) MCQ — walk today’s sheet until an unanswered question or completion. */
+  const handleFreeAdvanceFromReplay = useCallback(async () => {
+    if (mode !== 'free' || freeModeReviewMode || trivia.loading) return
+    const fq = trivia.currentFreeModeQuestion as FreeModeQuestion | null
+    if (!fq || !freeQuestionAlreadyAttempted(fq)) return
+    dispatch(clearTriviaError())
+    dispatch(clearSubmissionResult())
+    try {
+      const st = await dispatch(fetchFreeModeStatus()).unwrap()
+      if (isFreeModeComplete(st)) {
+        await openFreeCompletionFlow(dispatch)
+        reviewAutoOpenedByEmbedRef.current = false
+        setFreeModeReviewMode(true)
+        setFreeModeReviewIndex(0)
+        if (auth.isAuthenticated) void dispatch(fetchUserGems())
+        return
+      }
+
+      await dispatch(fetchFreeModeQuestions()).unwrap().catch(() => {})
+      try {
+        await dispatch(fetchCurrentFreeQuestion()).unwrap()
+      } catch {
+        /* No `/current` payload — still walk the sheet from list order. */
+        dispatch(clearTriviaError())
+      }
+
+      const list = store.getState().trivia.freeModeQuestions ?? []
+      const sorted =
+        list.length > 0 ? [...list].sort((a, b) => (a.question_order ?? 0) - (b.question_order ?? 0)) : []
+
+      const currentAfterFetch = store.getState().trivia.currentFreeModeQuestion as FreeModeQuestion | null
+      const n = sorted.length
+      if (n === 0) {
+        if (auth.isAuthenticated) void dispatch(fetchUserGems())
+        return
+      }
+
+      /*
+       If `/current` already points at an unanswered question, Redux is correct — do not sheet-walk from
+       startIdx + 1 (that would skip the server’s next question, e.g. Q2 → Q3).
+       */
+      if (currentAfterFetch) {
+        const mergedNow = mergeFreeQuestionWithDailyList(currentAfterFetch, sorted)
+        if (!freeQuestionAlreadyAttempted(mergedNow)) {
+          if (auth.isAuthenticated) void dispatch(fetchUserGems())
+          return
+        }
+      }
+
+      let startIdx =
+        currentAfterFetch ? sorted.findIndex((q) => q.question_id === currentAfterFetch.question_id) : -1
+      if (startIdx < 0) startIdx = 0
+
+      /* Visit every question in cycle starting after the server “current” until one is not yet attempted. */
+      for (let s = 0; s < n; s++) {
+        const idx = (startIdx + 1 + s) % n
+        const cand = sorted[idx]
+        const mergedCand = mergeFreeQuestionWithDailyList(cand, sorted)
+        if (!freeQuestionAlreadyAttempted(mergedCand)) {
+          dispatch(jumpToFreeSheetQuestion(cand.question_id))
+          if (auth.isAuthenticated) void dispatch(fetchUserGems())
+          return
+        }
+      }
+
+      await openFreeCompletionFlow(dispatch)
+      reviewAutoOpenedByEmbedRef.current = false
+      setFreeModeReviewMode(true)
+      setFreeModeReviewIndex(0)
+      if (auth.isAuthenticated) void dispatch(fetchUserGems())
+    } catch {
+      dispatch(clearTriviaError())
+    }
+  }, [
+    mode,
+    freeModeReviewMode,
+    trivia.loading,
+    trivia.currentFreeModeQuestion,
+    dispatch,
+    auth.isAuthenticated,
+  ])
 
   const handleBronzeSilverPick = useCallback(
     (id: 'a' | 'b' | 'c' | 'd', text: string) => {
@@ -462,7 +572,37 @@ export default function TriviaChallengePanel({
   const freeSubmitted = mode === 'free' && !freeModeReviewMode && trivia.isSubmitted
   const bronzeSilverMarks =
     (mode === 'bronze' || mode === 'silver') && (trivia.isSubmitted || alreadySubmitted)
-  const marksActive = freeSubmitted || bronzeSilverMarks || freeModeReviewMode
+  const marksActive = freeSubmitted || bronzeSilverMarks || freeModeReviewMode || freeReplayLocked
+
+  const onFreeReplayTouchStart = useCallback(
+    (e: ReactTouchEvent) => {
+      if (!freeReplayLocked || trivia.loading || freeModeReviewMode) return
+      const t = e.touches[0]
+      if (!t) return
+      freeReplaySwipeRef.current = { x: t.clientX, y: t.clientY }
+    },
+    [freeReplayLocked, trivia.loading, freeModeReviewMode],
+  )
+
+  const onFreeReplayTouchEnd = useCallback(
+    (e: ReactTouchEvent) => {
+      if (!freeReplayLocked || trivia.loading || freeModeReviewMode) {
+        freeReplaySwipeRef.current = null
+        return
+      }
+      const start = freeReplaySwipeRef.current
+      freeReplaySwipeRef.current = null
+      if (!start) return
+      const t = e.changedTouches[0]
+      if (!t) return
+      const dx = t.clientX - start.x
+      const dy = t.clientY - start.y
+      if (dx < -56 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+        void handleFreeAdvanceFromReplay()
+      }
+    },
+    [freeReplayLocked, trivia.loading, freeModeReviewMode, handleFreeAdvanceFromReplay],
+  )
 
   const optionClass = (id: string) => {
     const base =
@@ -585,8 +725,7 @@ export default function TriviaChallengePanel({
 
   const loadingQuestion = trivia.loading && !question && !trivia.error
   const err = trivia.error
-  const hideErrorBanner =
-    showCompletionModal || showInlineFreeSummary || freeModeReviewMode
+  const hideErrorBanner = freeModeReviewMode
 
   return (
     <div
@@ -661,34 +800,7 @@ export default function TriviaChallengePanel({
         </div>
       ) : null}
 
-      {mode === 'free' && showInlineFreeSummary ? (
-        <div className="rounded-3xl border border-white/15 bg-gradient-to-b from-white/10 to-transparent p-4 sm:p-6">
-          <h3 className="font-display text-xl text-white sm:text-2xl">Your answers</h3>
-          <p className="mt-1 text-sm text-white/70">Attempts today</p>
-          {typeof trivia.freeModeStatus?.progress?.correct_answers === 'number' &&
-          typeof trivia.freeModeStatus?.progress?.total_questions === 'number' ? (
-            <p className="mt-2 text-sm font-semibold text-amber-200/95">
-              Score {trivia.freeModeStatus.progress.correct_answers}/{trivia.freeModeStatus.progress.total_questions}
-            </p>
-          ) : null}
-          <div className="mt-4 max-h-[min(50vh,420px)] overflow-y-auto">
-            <FreeModeSummaryList questions={trivia.freeModeQuestions} />
-          </div>
-          <div className="mt-6 flex justify-center">
-            <Button
-              className="min-w-[200px] px-8 py-3 text-base font-semibold"
-              onClick={() => {
-                dispatch(clearTriviaError())
-                reviewAutoOpenedByEmbedRef.current = false
-                setFreeModeReviewMode(true)
-                setFreeModeReviewIndex(0)
-              }}
-            >
-              Review answers
-            </Button>
-          </div>
-        </div>
-      ) : null}
+
 
       {freeModeReviewMode && sortedFreeQuestions.length > 0 && !embedOnHome && !useHomeQuizLayout ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -714,7 +826,7 @@ export default function TriviaChallengePanel({
         </div>
       ) : null}
 
-      {question && !loadingQuestion && !showCompletionModal && !showInlineFreeSummary ? (
+      {question && !loadingQuestion ? (
         homeQuizChrome ? (
           <section
             className={`relative mx-auto flex w-full max-w-full flex-col overflow-hidden bg-quiz-panel text-white sm:max-w-2xl ${
@@ -794,7 +906,9 @@ export default function TriviaChallengePanel({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-                      className="flex min-h-0 flex-1 flex-col overflow-hidden pb-0"
+                      className="flex min-h-0 flex-1 flex-col overflow-hidden pb-0 touch-pan-y"
+                      onTouchStart={onFreeReplayTouchStart}
+                      onTouchEnd={onFreeReplayTouchEnd}
                     >
                       <div
                         className={
@@ -820,6 +934,21 @@ export default function TriviaChallengePanel({
                               Hint: {(question as FreeModeQuestion).hint}
                             </p>
                           ) : null}
+                          {freeReplayLocked ? (
+                            <>
+                              <p className="mt-2 text-center text-xs font-semibold text-amber-200/90 sm:text-sm">
+                                Already answered
+                                {(question as FreeModeQuestion).is_correct === true
+                                  ? ' · Correct'
+                                  : (question as FreeModeQuestion).is_correct === false
+                                    ? ' · Incorrect'
+                                    : ''}
+                              </p>
+                              <p className="mt-1 text-center text-[10px] text-white/55 sm:text-xs">
+                                Swipe left for next question, or tap Next below
+                              </p>
+                            </>
+                          ) : null}
                         </div>
 
                         <div
@@ -832,7 +961,7 @@ export default function TriviaChallengePanel({
                               text={o.text}
                               state={embedOptionState(o.id)}
                               compact={homeQuizChrome}
-                              disabled={trivia.loading || freeSubmitted || freeModeReviewMode}
+                              disabled={trivia.loading || freeSubmitted || freeModeReviewMode || freeReplayLocked}
                               onClick={() => {
                                 if (freeModeReviewMode) return
                                 handleFreeSelect(o.id, o.text)
@@ -878,22 +1007,42 @@ export default function TriviaChallengePanel({
                           <div
                             className={`shrink-0 border-t border-white/10 bg-[#0a3b89]/75 px-3 sm:px-6 ${homeQuizChrome ? 'py-1.5 sm:py-2' : 'py-2 sm:py-3'}`}
                           >
-                            <Button
-                              onClick={handleSubmitFree}
-                              disabled={
-                                !trivia.selectedAnswer ||
-                                !trivia.selectedOptionText ||
-                                trivia.isSubmitted ||
-                                trivia.loading
-                              }
-                              className={`w-full rounded-full font-semibold ${
-                                homeQuizChrome
-                                  ? 'px-5 py-2 text-xs sm:px-8 sm:py-2.5 sm:text-sm'
-                                  : 'px-6 py-2.5 text-sm sm:px-10 sm:py-3 sm:text-base'
-                              }`}
-                            >
-                              {trivia.loading ? 'Submitting…' : trivia.isSubmitted ? 'Next question…' : 'Submit'}
-                            </Button>
+                            {freeReplayLocked ? (
+                              <Button
+                                type="button"
+                                onClick={() => void handleFreeAdvanceFromReplay()}
+                                disabled={trivia.loading}
+                                aria-label="Load next free trivia question"
+                                className={`w-full rounded-full font-semibold ${
+                                  homeQuizChrome
+                                    ? 'px-5 py-2 text-xs sm:px-8 sm:py-2.5 sm:text-sm'
+                                    : 'px-6 py-2.5 text-sm sm:px-10 sm:py-3 sm:text-base'
+                                }`}
+                              >
+                                {trivia.loading ? 'Loading…' : 'Next question'}
+                              </Button>
+                            ) : (
+                              <Button
+                                onClick={handleSubmitFree}
+                                disabled={
+                                  !trivia.selectedAnswer ||
+                                  !trivia.selectedOptionText ||
+                                  trivia.isSubmitted ||
+                                  trivia.loading
+                                }
+                                className={`w-full rounded-full font-semibold ${
+                                  homeQuizChrome
+                                    ? 'px-5 py-2 text-xs sm:px-8 sm:py-2.5 sm:text-sm'
+                                    : 'px-6 py-2.5 text-sm sm:px-10 sm:py-3 sm:text-base'
+                                }`}
+                              >
+                                {trivia.loading
+                                  ? 'Submitting…'
+                                  : trivia.isSubmitted
+                                    ? 'Next question…'
+                                    : 'Submit'}
+                              </Button>
+                            )}
                           </div>
                         </>
                       )}
@@ -966,44 +1115,105 @@ export default function TriviaChallengePanel({
           </section>
         ) : (
           <>
-            <div className="rounded-3xl border border-white/15 bg-gradient-to-b from-white/10 to-transparent p-4 sm:p-6">
-              <p className="text-xs uppercase tracking-wide text-white/60">{question.category}</p>
-              <h4 className="mt-2 font-display text-lg leading-snug text-white sm:text-xl">{question.question}</h4>
-              {question.hint ? <p className="mt-3 text-sm text-amber-100/90">Hint: {question.hint}</p> : null}
-            </div>
+            {mode === 'free' ? (
+              <div
+                className="flex flex-col gap-2 touch-pan-y sm:gap-3"
+                onTouchStart={onFreeReplayTouchStart}
+                onTouchEnd={onFreeReplayTouchEnd}
+              >
+                <div className="rounded-3xl border border-white/15 bg-gradient-to-b from-white/10 to-transparent p-4 sm:p-6">
+                  <p className="text-xs uppercase tracking-wide text-white/60">{question.category}</p>
+                  <h4 className="mt-2 font-display text-lg leading-snug text-white sm:text-xl">{question.question}</h4>
+                  {question.hint ? <p className="mt-3 text-sm text-amber-100/90">Hint: {question.hint}</p> : null}
+                  {freeReplayLocked ? (
+                    <>
+                      <p className="mt-2 text-sm font-semibold text-amber-200/90">
+                        Already answered
+                        {(question as FreeModeQuestion).is_correct === true
+                          ? ' · Correct'
+                          : (question as FreeModeQuestion).is_correct === false
+                            ? ' · Incorrect'
+                            : ''}
+                      </p>
+                      <p className="mt-1 text-center text-xs text-white/60">Swipe left for next, or use the button.</p>
+                    </>
+                  ) : null}
+                </div>
 
-            <div className="grid gap-2 sm:gap-3">
-              {options.map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  disabled={
-                    (mode === 'free' && !freeModeReviewMode && trivia.isSubmitted) ||
-                    alreadySubmitted ||
-                    trivia.loading ||
-                    freeModeReviewMode
-                  }
-                  className={optionClass(o.id)}
-                  onClick={() => {
-                    if (mode === 'free' && !freeModeReviewMode) handleFreeSelect(o.id, o.text)
-                    else if ((mode === 'bronze' || mode === 'silver') && !freeModeReviewMode) handleBronzeSilverPick(o.id, o.text)
-                  }}
-                >
-                  <span className="mr-2 font-bold uppercase text-white/50">{o.id}.</span>
-                  {o.text}
-                </button>
-              ))}
-            </div>
+                <div className="grid gap-2 sm:gap-3">
+                  {options.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      disabled={
+                        (!freeModeReviewMode && (trivia.isSubmitted || freeReplayLocked)) ||
+                        trivia.loading ||
+                        freeModeReviewMode
+                      }
+                      className={optionClass(o.id)}
+                      onClick={() => {
+                        if (!freeModeReviewMode) handleFreeSelect(o.id, o.text)
+                      }}
+                    >
+                      <span className="mr-2 font-bold uppercase text-white/50">{o.id}.</span>
+                      {o.text}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-3xl border border-white/15 bg-gradient-to-b from-white/10 to-transparent p-4 sm:p-6">
+                  <p className="text-xs uppercase tracking-wide text-white/60">{question.category}</p>
+                  <h4 className="mt-2 font-display text-lg leading-snug text-white sm:text-xl">{question.question}</h4>
+                  {question.hint ? <p className="mt-3 text-sm text-amber-100/90">Hint: {question.hint}</p> : null}
+                </div>
+
+                <div className="grid gap-2 sm:gap-3">
+                  {options.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      disabled={alreadySubmitted || trivia.loading || freeModeReviewMode}
+                      className={optionClass(o.id)}
+                      onClick={() => {
+                        if (!freeModeReviewMode) handleBronzeSilverPick(o.id, o.text)
+                      }}
+                    >
+                      <span className="mr-2 font-bold uppercase text-white/50">{o.id}.</span>
+                      {o.text}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             {mode === 'free' && !freeModeReviewMode ? (
-              <div className="flex justify-center pt-2">
-                <Button
-                  className="min-w-[200px] px-8 py-3 text-base font-semibold"
-                  disabled={!trivia.selectedAnswer || !trivia.selectedOptionText || trivia.isSubmitted || trivia.loading}
-                  onClick={handleSubmitFree}
-                >
-                  {trivia.loading ? 'Submitting…' : 'Submit'}
-                </Button>
+              <div className="flex flex-col items-center gap-2 pt-2">
+                {freeReplayLocked ? (
+                  <Button
+                    type="button"
+                    className="min-w-[200px] px-8 py-3 text-base font-semibold"
+                    disabled={trivia.loading}
+                    onClick={() => void handleFreeAdvanceFromReplay()}
+                    aria-label="Load next free trivia question"
+                  >
+                    {trivia.loading ? 'Loading…' : 'Next question'}
+                  </Button>
+                ) : (
+                  <Button
+                    className="min-w-[200px] px-8 py-3 text-base font-semibold"
+                    disabled={
+                      !trivia.selectedAnswer ||
+                      !trivia.selectedOptionText ||
+                      trivia.isSubmitted ||
+                      trivia.loading
+                    }
+                    onClick={handleSubmitFree}
+                  >
+                    {trivia.loading ? 'Submitting…' : 'Submit'}
+                  </Button>
+                )}
               </div>
             ) : null}
           </>
@@ -1014,34 +1224,11 @@ export default function TriviaChallengePanel({
       !loadingQuestion &&
       !err &&
       initialized &&
-      !showCompletionModal &&
-      !showInlineFreeSummary ? (
+      !(mode === 'free' && freeModeReviewMode && sortedFreeQuestions.length > 0) ? (
         <p className="text-center text-sm text-white/70">
           {mode === 'free' && hasAttemptedAnyFree ? 'No more questions right now.' : 'No question available.'}
         </p>
       ) : null}
-
-      <FreeModeCompleteModal
-        open={showCompletionModal}
-        variant="complete"
-        status={trivia.freeModeStatus}
-        questions={trivia.freeModeQuestions}
-        overlay={modalOverlay}
-        inline={embedOnHome}
-        onDismiss={() => {
-          setShowFreeComplete(false)
-          if (embedOnHome) setEmbedCompletionDismissed(true)
-          dispatch(clearTriviaError())
-        }}
-        onReviewAnswers={() => {
-          setShowFreeComplete(false)
-          if (embedOnHome) setEmbedCompletionDismissed(true)
-          dispatch(clearTriviaError())
-          reviewAutoOpenedByEmbedRef.current = false
-          setFreeModeReviewMode(true)
-          setFreeModeReviewIndex(0)
-        }}
-      />
 
       <TriviaResultModal
         open={showResultModal && (mode === 'bronze' || mode === 'silver')}

@@ -23,6 +23,67 @@ export type FreeModeQuestion = {
   status: string
   is_correct: boolean | null
   answered_at: string | null
+  /** When present from API — question was answered earlier (mirror with list row). */
+  already_attempted?: boolean
+}
+
+function normalizedFreeFillInAnswer(value: unknown): string | null {
+  if (value == null) return null
+  if (typeof value === 'string') return value.trim() === '' ? null : value
+  if (Array.isArray(value) && value.length > 0) {
+    const last = value[value.length - 1]
+    if (last && typeof last === 'object' && 'user_answer' in (last as object)) {
+      const u = String((last as { user_answer?: string }).user_answer ?? '').trim()
+      return u === '' ? null : u
+    }
+  }
+  return null
+}
+
+/** True when this question row reflects a prior submit (today's sheet or replay). */
+export function freeQuestionAlreadyAttempted(q: FreeModeQuestion | null | undefined): boolean {
+  if (!q) return false
+  if (q.already_attempted === true) return true
+  if (q.is_correct === true || q.is_correct === false) return true
+  if (q.answered_at != null && String(q.answered_at).trim() !== '') return true
+  if (normalizedFreeFillInAnswer(q.fill_in_answer) != null) return true
+  const s = String(q.status || '').trim().toLowerCase()
+  if (
+    s === 'answered_correct' ||
+    s === 'answered_wrong' ||
+    s === 'answered' ||
+    (s.includes('answered') && !s.includes('unanswered'))
+  ) {
+    return true
+  }
+  return false
+}
+
+/** Overlay attempt fields from the daily sheet list onto the `/current-question` payload (same IDs). */
+export function mergeFreeQuestionWithDailyList(
+  current: FreeModeQuestion,
+  list: FreeModeQuestion[] | null | undefined,
+): FreeModeQuestion {
+  if (!list?.length) return current
+  const hit = list.find((x) => x.question_id === current.question_id)
+  if (!hit || !freeQuestionAlreadyAttempted(hit)) return current
+  return {
+    ...current,
+    answered_at: hit.answered_at ?? current.answered_at,
+    is_correct: hit.is_correct ?? current.is_correct,
+    status: hit.status ?? current.status,
+    fill_in_answer:
+      normalizedFreeFillInAnswer(hit.fill_in_answer) ??
+      normalizedFreeFillInAnswer(current.fill_in_answer) ??
+      hit.fill_in_answer ??
+      current.fill_in_answer,
+    explanation: hit.explanation || current.explanation,
+    correct_answer: hit.correct_answer || current.correct_answer,
+    already_attempted:
+      typeof hit.already_attempted === 'boolean'
+        ? hit.already_attempted
+        : freeQuestionAlreadyAttempted(hit),
+  }
 }
 
 /** Backend may send `all_questions_answered: true` while `progress.completed` is still false — normalize in fetch. */
@@ -354,6 +415,22 @@ export const triviaSlice = createSlice({
     clearTriviaError: (state) => {
       state.error = null
     },
+    /** Move playhead to another row on today’s free sheet (client-side) after `/current` returns an already-attempted question. */
+    jumpToFreeSheetQuestion: (state, action: PayloadAction<number>) => {
+      const id = action.payload
+      const list = state.freeModeQuestions
+      if (!list?.length) return
+      const row = list.find((x) => x.question_id === id)
+      if (!row) return
+      state.currentFreeModeQuestion = mergeFreeQuestionWithDailyList(row, list)
+      state.currentMode = 'free'
+      state.selectedAnswer = null
+      state.selectedOptionText = null
+      state.isSubmitted = false
+      state.submissionResult = null
+      state.loading = false
+      state.error = null
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(logout, () => ({ ...initialState }))
@@ -383,6 +460,12 @@ export const triviaSlice = createSlice({
     builder
       .addCase(fetchFreeModeQuestions.fulfilled, (state, action) => {
         state.freeModeQuestions = action.payload.questions
+        if (state.currentFreeModeQuestion) {
+          state.currentFreeModeQuestion = mergeFreeQuestionWithDailyList(
+            state.currentFreeModeQuestion,
+            action.payload.questions,
+          )
+        }
       })
       .addCase(fetchCurrentFreeQuestion.pending, (state) => {
         state.loading = true
@@ -390,7 +473,8 @@ export const triviaSlice = createSlice({
       })
       .addCase(fetchCurrentFreeQuestion.fulfilled, (state, action) => {
         state.loading = false
-        state.currentFreeModeQuestion = action.payload
+        const merged = mergeFreeQuestionWithDailyList(action.payload, state.freeModeQuestions)
+        state.currentFreeModeQuestion = merged
         state.currentMode = 'free'
         state.selectedAnswer = null
         state.selectedOptionText = null
@@ -551,5 +635,5 @@ export const triviaSlice = createSlice({
   },
 })
 
-export const { setSelectedAnswer, setCurrentMode, clearSubmissionResult, resetTriviaUi, clearTriviaError } = triviaSlice.actions
+export const { setSelectedAnswer, setCurrentMode, clearSubmissionResult, resetTriviaUi, clearTriviaError, jumpToFreeSheetQuestion } = triviaSlice.actions
 export const triviaReducer = triviaSlice.reducer
