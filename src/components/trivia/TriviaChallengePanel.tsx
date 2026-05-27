@@ -546,22 +546,27 @@ export default function TriviaChallengePanel({
     auth.isAuthenticated,
   ])
 
-  const handleBronzeSilverPick = useCallback(
+  const handleBronzeSilverSelect = useCallback(
     (id: 'a' | 'b' | 'c' | 'd', text: string) => {
       if (!question || trivia.loading) return
       if (alreadySubmitted) return
       if (trivia.isSubmitted) return
-
       dispatch(setSelectedAnswer({ id, text }))
-      const qid = question.question_id
-      if (mode === 'bronze') {
-        void dispatch(submitBronzeModeAnswer({ question_id: qid, answer: text }))
-      } else {
-        void dispatch(submitSilverModeAnswer({ question_id: qid, answer: text }))
-      }
     },
-    [question, trivia.loading, trivia.isSubmitted, mode, alreadySubmitted, dispatch]
+    [question, trivia.loading, trivia.isSubmitted, alreadySubmitted, dispatch]
   )
+
+  const handleSubmitBronzeSilver = useCallback(() => {
+    if (mode !== 'bronze' && mode !== 'silver') return
+    const q = question as BronzeSilverModeQuestion | null
+    const text = trivia.selectedOptionText
+    if (!q || !text || trivia.loading || trivia.isSubmitted || alreadySubmitted) return
+    if (mode === 'bronze') {
+      void dispatch(submitBronzeModeAnswer({ question_id: q.question_id, answer: text }))
+    } else {
+      void dispatch(submitSilverModeAnswer({ question_id: q.question_id, answer: text }))
+    }
+  }, [mode, question, trivia.selectedOptionText, trivia.loading, trivia.isSubmitted, alreadySubmitted, dispatch])
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60)
@@ -869,7 +874,7 @@ export default function TriviaChallengePanel({
                   ) : timerSec !== null && timerSec >= 0 ? (
                     <>Closes in {formatTime(timerSec)}</>
                   ) : (
-                    <>Daily question · tap an answer to submit</>
+                    <>Daily question · select an answer, then Submit</>
                   )}
                   {mode !== 'free' && (question as BronzeSilverModeQuestion).category ? (
                     <span className="mt-1 block text-xs text-white/60">
@@ -1100,35 +1105,33 @@ export default function TriviaChallengePanel({
                             state={embedOptionState(o.id)}
                             compact={homeQuizChrome}
                             disabled={Boolean(trivia.loading || bronzeSilverAnswered)}
-                            onClick={() => handleBronzeSilverPick(o.id, o.text)}
+                            onClick={() => handleBronzeSilverSelect(o.id, o.text)}
                           />
                         ))}
                       </div>
                     </div>
-                    {bronzeSilverAnswered ? (
+                    {!bronzeSilverAnswered ? (
                       <div
                         className={`shrink-0 border-t border-white/10 bg-[#0a3b89]/75 px-3 sm:px-6 ${homeQuizChrome ? 'py-1.5 sm:py-2' : 'py-2 sm:py-3'}`}
                       >
                         <Button
-                          onClick={onBack}
+                          onClick={handleSubmitBronzeSilver}
+                          disabled={
+                            !trivia.selectedAnswer ||
+                            !trivia.selectedOptionText ||
+                            trivia.isSubmitted ||
+                            trivia.loading
+                          }
                           className={`w-full rounded-full font-semibold ${
                             homeQuizChrome
                               ? 'px-5 py-2 text-xs sm:px-8 sm:py-2.5 sm:text-sm'
                               : 'px-6 py-2.5 text-sm sm:px-10 sm:py-3 sm:text-base'
                           }`}
                         >
-                          Continue
+                          {trivia.loading ? 'Submitting…' : 'Submit'}
                         </Button>
                       </div>
-                    ) : (
-                      <p
-                        className={`shrink-0 border-t border-white/10 bg-[#0a3b89]/75 px-3 text-center text-white/65 ${
-                          homeQuizChrome ? 'py-1.5 text-[9px] sm:py-2 sm:text-[10px]' : 'py-2 text-[10px] sm:py-2.5 sm:text-xs'
-                        }`}
-                      >
-                        Tap an option to submit your answer for today.
-                      </p>
-                    )}
+                    ) : null}
                   </motion.div>
                 </AnimatePresence>
               )}
@@ -1198,7 +1201,7 @@ export default function TriviaChallengePanel({
                       disabled={bronzeSilverAnswered || trivia.loading || freeModeReviewMode}
                       className={optionClass(o.id)}
                       onClick={() => {
-                        if (!freeModeReviewMode) handleBronzeSilverPick(o.id, o.text)
+                        if (!freeModeReviewMode) handleBronzeSilverSelect(o.id, o.text)
                       }}
                     >
                       <span className="mr-2 font-bold uppercase text-white/50">{o.id}.</span>
@@ -1206,10 +1209,19 @@ export default function TriviaChallengePanel({
                     </button>
                   ))}
                 </div>
-                {bronzeSilverAnswered ? (
+                {!bronzeSilverAnswered ? (
                   <div className="flex flex-col items-center gap-2 pt-2">
-                    <Button className="min-w-[200px] px-8 py-3 text-base font-semibold" onClick={onBack}>
-                      Continue
+                    <Button
+                      className="min-w-[200px] px-8 py-3 text-base font-semibold"
+                      disabled={
+                        !trivia.selectedAnswer ||
+                        !trivia.selectedOptionText ||
+                        trivia.isSubmitted ||
+                        trivia.loading
+                      }
+                      onClick={handleSubmitBronzeSilver}
+                    >
+                      {trivia.loading ? 'Submitting…' : 'Submit'}
                     </Button>
                   </div>
                 ) : null}

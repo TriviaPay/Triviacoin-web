@@ -8,10 +8,12 @@ import Button from '../ui/Button'
 import {
   bindPassword,
   loginWithPassword,
+  resetPasswordAfterOtp,
   sendOTPVerification,
   verifyOTP,
 } from '../../store/authSlice'
 import { apiService } from '../../services/apiService'
+import { authService } from '../../services/authService'
 import CountryPickerModal from '../auth/CountryPickerModal'
 import DatePickerModal from '../auth/DatePickerModal'
 import PasswordChecklist, { passwordIsValid } from '../auth/PasswordChecklist'
@@ -50,6 +52,7 @@ const AuthModal = () => {
   const [status, setStatus] = useState<string | null>(null)
   const [signupStep, setSignupStep] = useState<typeof AUTH_STEPS[keyof typeof AUTH_STEPS]>(AUTH_STEPS.EMAIL)
   const [sessionToken, setSessionToken] = useState<string | null>(null)
+  const [sessionRefreshToken, setSessionRefreshToken] = useState<string | null>(null)
   const [sessionDescopeUserId, setSessionDescopeUserId] = useState<string | null>(null)
   const [countryOpen, setCountryOpen] = useState(false)
   const [dobOpen, setDobOpen] = useState(false)
@@ -83,38 +86,65 @@ const AuthModal = () => {
 
   const [forgotStep, setForgotStep] = useState<typeof FORGOT_STEPS[keyof typeof FORGOT_STEPS]>(FORGOT_STEPS.EMAIL)
   const modalWasOpen = useRef(false)
+  const formRef = useRef(form)
+  formRef.current = form
 
-  /** Restore draft once when opening; save when closing (keep filled fields). */
+  const resetSignupToEmailStep = useCallback(() => {
+    setSignupStep(AUTH_STEPS.EMAIL)
+    setSessionToken(null)
+    setSessionRefreshToken(null)
+    setSessionDescopeUserId(null)
+    setResendCountdown(0)
+    setErrors({})
+    setStatus(null)
+    authService.clearTokens()
+  }, [])
+
+  /** Restore draft once when opening; save when closing (do not depend on `form` — avoids stale overwrites). */
   useEffect(() => {
     if (modalOpen && !modalWasOpen.current) {
       const draft = loadAuthFormDraft()
       if (draft) {
-        setForm(draft.form)
+        setForm(draft.form ?? {})
         if (draft.authMode === 'signup' || draft.authMode === 'forgot' || draft.authMode === 'signin') {
           dispatch(setAuthMode(draft.authMode))
         }
-        if (
-          draft.signupStep === AUTH_STEPS.EMAIL ||
-          draft.signupStep === AUTH_STEPS.OTP ||
-          draft.signupStep === AUTH_STEPS.PASSWORD_PROFILE
-        ) {
-          setSignupStep(draft.signupStep)
+        const hasOtpSession = Boolean(draft.sessionToken)
+        if (draft.authMode === 'signup') {
+          if (
+            hasOtpSession &&
+            (draft.signupStep === AUTH_STEPS.OTP ||
+              draft.signupStep === AUTH_STEPS.PASSWORD_PROFILE)
+          ) {
+            setSignupStep(draft.signupStep)
+            setSessionToken(draft.sessionToken)
+            setSessionDescopeUserId(draft.sessionDescopeUserId)
+          } else {
+            setSignupStep(AUTH_STEPS.EMAIL)
+            setSessionToken(null)
+            setSessionDescopeUserId(null)
+          }
         }
-        if (
-          draft.forgotStep === FORGOT_STEPS.EMAIL ||
-          draft.forgotStep === FORGOT_STEPS.OTP ||
-          draft.forgotStep === FORGOT_STEPS.PASSWORD
-        ) {
-          setForgotStep(draft.forgotStep)
+        if (draft.authMode === 'forgot') {
+          if (
+            hasOtpSession &&
+            (draft.forgotStep === FORGOT_STEPS.OTP || draft.forgotStep === FORGOT_STEPS.PASSWORD)
+          ) {
+            setForgotStep(draft.forgotStep)
+            setSessionToken(draft.sessionToken)
+            setSessionDescopeUserId(draft.sessionDescopeUserId)
+          } else {
+            setForgotStep(FORGOT_STEPS.EMAIL)
+            setSessionToken(null)
+            setSessionDescopeUserId(null)
+          }
         }
-        setSessionToken(draft.sessionToken)
-        setSessionDescopeUserId(draft.sessionDescopeUserId)
       }
     }
 
     if (!modalOpen && modalWasOpen.current) {
       saveAuthFormDraft({
-        form,
+        form: formRef.current,
         authMode,
         signupStep,
         forgotStep,
@@ -126,7 +156,7 @@ const AuthModal = () => {
     }
 
     modalWasOpen.current = modalOpen
-  }, [modalOpen, form, authMode, signupStep, forgotStep, sessionToken, sessionDescopeUserId, dispatch])
+  }, [modalOpen, authMode, signupStep, forgotStep, sessionToken, sessionDescopeUserId, dispatch])
 
   useEffect(() => {
     let t: ReturnType<typeof setInterval> | null = null
@@ -212,6 +242,7 @@ const AuthModal = () => {
         if (verifyOTP.fulfilled.match(result)) {
           const p = result.payload as any
           if (p?.token) setSessionToken(p.token)
+          if (p?.refreshToken) setSessionRefreshToken(p.refreshToken)
           if (p?.descope_user_id) setSessionDescopeUserId(p.descope_user_id)
           setSignupStep(AUTH_STEPS.PASSWORD_PROFILE)
           setStatus(null)
@@ -247,7 +278,8 @@ const AuthModal = () => {
   }, [form.email, descope, descopeReady, dispatch, resendCountdown])
 
   const handleSignup = useCallback(async () => {
-    if (!canCompleteSignup || !sessionToken) return
+    const token = sessionToken ?? auth.token ?? authService.getSessionToken()
+    if (!canCompleteSignup || !token) return
     const email = (form.email ?? '').trim().toLowerCase()
     setStatus(null)
     try {
@@ -259,7 +291,7 @@ const AuthModal = () => {
           country: form.country!,
           date_of_birth: form.dob!,
           referral_code: form.referral?.trim() && referralValid ? form.referral.trim() : null,
-          token: sessionToken,
+          token,
           descope_user_id: sessionDescopeUserId ?? undefined,
         }) as any
       ).unwrap()
@@ -268,7 +300,7 @@ const AuthModal = () => {
     } catch (e: any) {
       setStatus(e?.message || 'Signup failed')
     }
-  }, [canCompleteSignup, sessionToken, sessionDescopeUserId, form, referralValid, dispatch])
+  }, [canCompleteSignup, sessionToken, auth.token, sessionDescopeUserId, form, referralValid, dispatch])
 
   const handleLogin = useCallback(async () => {
     if (!canLogin) return
@@ -285,9 +317,16 @@ const AuthModal = () => {
       clearAuthFormDraft()
       dispatch(closeModal())
     } catch (e: any) {
-      setStatus(e?.message || 'Invalid email or password')
+      const msg = e?.message || 'Invalid email or password'
+      if (loginEmailAvailable === false && /invalid email or password/i.test(msg)) {
+        setStatus(
+          `${msg} Use Forgot Password once if you have not reset since the app update.`
+        )
+      } else {
+        setStatus(msg)
+      }
     }
-  }, [canLogin, form.email, form.password, descope, dispatch])
+  }, [canLogin, form.email, form.password, descope, dispatch, loginEmailAvailable])
 
   const handleExistingUserLogin = useCallback(() => {
     setShowExistingUserPopup(false)
@@ -300,6 +339,7 @@ const AuthModal = () => {
     setErrors({})
     setStatus(null)
     setSessionToken(null)
+    setSessionRefreshToken(null)
     setSessionDescopeUserId(null)
   }, [dispatch])
 
@@ -307,6 +347,7 @@ const AuthModal = () => {
     dispatch(setAuthMode('signin'))
     setForgotStep(FORGOT_STEPS.EMAIL)
     setSessionToken(null)
+    setSessionRefreshToken(null)
     setSessionDescopeUserId(null)
   }, [dispatch])
 
@@ -350,6 +391,7 @@ const AuthModal = () => {
         if (verifyOTP.fulfilled.match(result)) {
           const p = result.payload as any
           if (p?.token) setSessionToken(p.token)
+          if (p?.refreshToken) setSessionRefreshToken(p.refreshToken)
           if (p?.descope_user_id) setSessionDescopeUserId(p.descope_user_id)
           setForgotStep(FORGOT_STEPS.PASSWORD)
           setStatus(null)
@@ -370,7 +412,12 @@ const AuthModal = () => {
     const email = (form.email ?? '').trim().toLowerCase()
     const pwd = form.password ?? ''
     const confirm = form.confirm ?? ''
-    if (!email || !sessionToken) return
+    const refresh = sessionRefreshToken ?? authService.getRefreshToken()
+    if (!email || !refresh) {
+      setStatus('Session expired. Please verify the code again.')
+      setForgotStep(FORGOT_STEPS.OTP)
+      return
+    }
     if (pwd.length < 8) {
       setErrors({ password: 'Password must be at least 8 characters' })
       return
@@ -387,14 +434,11 @@ const AuthModal = () => {
     setErrors({})
     try {
       await dispatch(
-        bindPassword({
+        resetPasswordAfterOtp({
           email,
           password: pwd,
-          username: email.split('@')[0],
-          country: 'Unknown',
-          date_of_birth: '2000-01-01',
-          token: sessionToken,
-          descope_user_id: sessionDescopeUserId ?? undefined,
+          descope: descope ?? null,
+          refreshToken: refresh,
         }) as any
       ).unwrap()
       clearAuthFormDraft()
@@ -402,7 +446,7 @@ const AuthModal = () => {
     } catch (e: any) {
       setStatus(e?.message || 'Failed to reset password')
     }
-  }, [form.email, form.password, form.confirm, sessionToken, sessionDescopeUserId, dispatch])
+  }, [form.email, form.password, form.confirm, sessionRefreshToken, descope, dispatch])
 
   useEffect(() => {
     const u = form.username?.trim() ?? ''
@@ -515,7 +559,19 @@ const AuthModal = () => {
                 <ToggleChip mode="signin" activeMode={authMode} onClick={() => dispatch(toggleAuthMode())}>
                   Sign In
                 </ToggleChip>
-                <ToggleChip mode="signup" activeMode={authMode} onClick={() => dispatch(toggleAuthMode())}>
+                <ToggleChip
+                  mode="signup"
+                  activeMode={authMode}
+                  onClick={() => {
+                    if (authMode !== 'signup') {
+                      const email = (form.email ?? '').trim()
+                      resetSignupToEmailStep()
+                      setForm(email ? { email } : {})
+                      clearAuthFormDraft()
+                    }
+                    dispatch(toggleAuthMode())
+                  }}
+                >
                   Sign Up
                 </ToggleChip>
               </div>
@@ -641,6 +697,13 @@ const AuthModal = () => {
 
               {isSignup && signupStep === AUTH_STEPS.OTP && (
                 <>
+                  <button
+                    type="button"
+                    onClick={resetSignupToEmailStep}
+                    className="text-left text-sm text-amber-200/90 underline hover:text-amber-100"
+                  >
+                    Use a different email
+                  </button>
                   {verifyingOtp && (
                     <p className="text-center text-sm text-amber-200">Verifying code…</p>
                   )}
@@ -658,6 +721,16 @@ const AuthModal = () => {
 
               {isSignup && signupStep === AUTH_STEPS.PASSWORD_PROFILE && (
                 <>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-white/80">
+                    <span className="truncate">Signing up as {form.email}</span>
+                    <button
+                      type="button"
+                      onClick={resetSignupToEmailStep}
+                      className="shrink-0 text-amber-200/90 underline hover:text-amber-100"
+                    >
+                      Change email
+                    </button>
+                  </div>
                   <PasswordField
                     label="Password"
                     value={form.password ?? ''}

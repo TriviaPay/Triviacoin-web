@@ -41,7 +41,7 @@ export const DESCOPE_ERRORS = {
   OTP_EXPIRED: 'Verification code expired',
   NETWORK_ERROR: 'Network error. Please check your connection.',
   UNKNOWN_ERROR: 'An unexpected error occurred',
-  /** E062903 - Password stored in backend (bind-password) not synced to Descope */
+  /** E062903 — invalid credentials at Descope password sign-in (check loginId/email match bind). */
   PASSWORD_SIGNIN_FAILED: 'Invalid email or password',
 } as const
 

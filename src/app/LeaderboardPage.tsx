@@ -61,19 +61,18 @@ const LeaderboardPage = () => {
   const slot = useAppSelector((s) => s.leaderboard.slots[tier])
   const loadingTier = useAppSelector((s) => s.leaderboard.loadingTier)
 
-  const drawDate = useMemo(() => {
-    if (!nextDrawTime && !timerError) return null
-    return getDrawDateForWinners(nextDrawTime ?? undefined)
-  }, [nextDrawTime, timerError])
+  /** Always derive a draw date (today / yesterday) even when `/draw/next` is unavailable. */
+  const drawDate = useMemo(() => getDrawDateForWinners(nextDrawTime ?? undefined), [nextDrawTime])
 
   const [joinModalOpen, setJoinModalOpen] = useState(false)
   const [profileRow, setProfileRow] = useState<LeaderboardRow | null>(null)
 
-  const entry = slot && drawDate && slot.drawDate === drawDate ? slot : null
-  const displaySlot = entry ?? slot
-  const rows = displaySlot?.rows ?? []
-  const error = entry?.error ?? (displaySlot?.drawDate === drawDate ? displaySlot?.error : null) ?? null
-  const loading = Boolean(drawDate && loadingTier === tier && rows.length === 0 && !error)
+  const slotMatchesDate = Boolean(slot && drawDate && slot.drawDate === drawDate)
+  const rows = slotMatchesDate ? (slot?.rows ?? []) : []
+  const error = slotMatchesDate ? (slot?.error ?? null) : null
+  const loading = Boolean(
+    drawDate && loadingTier === tier && rows.length === 0 && !error && !slotMatchesDate
+  )
 
   useEffect(() => {
     if (!nextDrawTime && !timerError) {
@@ -301,7 +300,7 @@ const LeaderboardPage = () => {
       <LeaderboardUserModal
         visible={profileRow != null}
         row={profileRow}
-        drawDate={entry?.drawDate ?? drawDate}
+        drawDate={slot?.drawDate ?? drawDate}
         onClose={() => setProfileRow(null)}
         onSendMessage={sendMessageToUser}
         canSendMessage={

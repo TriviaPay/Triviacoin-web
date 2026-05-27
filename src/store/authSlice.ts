@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import { authService } from '../services/authService'
-import { apiService, backendLogin } from '../services/apiService'
+import { apiService } from '../services/apiService'
 import type { DescopeSdk } from '../services/authService'
 import { getDescopeUserIdFromJwt, getEmailFromJwt } from '../lib/jwt'
 
@@ -87,9 +87,12 @@ export const bindPassword = createAsyncThunk(
     { rejectWithValue }
   ) => {
     const { token, descope_user_id, ...rest } = payload
+    const email = rest.email.trim().toLowerCase()
+
+    /** Backend POST /bind-password — profile DB + password in Descope (management API). No client signIn here. */
     const result = await apiService.bindPassword(
       {
-        email: rest.email,
+        email: rest.email.trim().toLowerCase(),
         password: rest.password,
         username: rest.username,
         country: rest.country,
@@ -99,27 +102,77 @@ export const bindPassword = createAsyncThunk(
       },
       token
     )
-    if (!result.success) return rejectWithValue(result.error || 'Bind password failed')
+    if (!result.success) {
+      if (result.alreadyBound) {
+        return rejectWithValue(
+          result.error || 'This account is already registered. Please sign in instead.'
+        )
+      }
+      return rejectWithValue(result.error || 'Bind password failed')
+    }
 
-    // Sync can be added here once backend supports a canonical user mapping.
-    // For now, use the password-bound user directly.
     const user = result.data?.user ?? result.data
 
     return {
       success: true,
       user: user
         ? {
-            id: String(user.id ?? user.account_id ?? user.descope_user_id ?? rest.email),
+            id: String(user.id ?? user.account_id ?? user.descope_user_id ?? email),
             descope_user_id: user.descope_user_id ?? descope_user_id,
             email: String(user.email ?? rest.email),
             username: String(user.username ?? user.name ?? rest.username ?? ''),
           }
         : {
-            id: rest.email,
+            id: email,
             descope_user_id: descope_user_id ?? undefined,
-            email: rest.email,
+            email,
             username: rest.username ?? '',
           },
+    }
+  }
+)
+
+/** Forgot password: OTP → password.update (refresh JWT) → password.signIn. No bind-password. */
+export const resetPasswordAfterOtp = createAsyncThunk(
+  'auth/resetPassword',
+  async (
+    {
+      email,
+      password,
+      descope,
+      refreshToken,
+    }: {
+      email: string
+      password: string
+      descope: DescopeSdk | null
+      refreshToken?: string | null
+    },
+    { rejectWithValue }
+  ) => {
+    if (!descope) return rejectWithValue('Auth not ready. Please wait.')
+    const loginId = email.trim().toLowerCase()
+    const refresh = refreshToken ?? authService.getRefreshToken()
+    const update = await authService.setPasswordAfterOtp(descope, loginId, password, refresh)
+    if (!update.success) return rejectWithValue(update.error || 'Failed to reset password')
+
+    const login = await authService.loginWithPassword(descope, loginId, password)
+    if (!login.success || !login.token) {
+      return rejectWithValue(login.error || 'Password updated but sign-in failed. Try signing in.')
+    }
+    const descopeUserId = login.user?.userId ?? getDescopeUserIdFromJwt(login.token)
+    if (!descopeUserId) return rejectWithValue('Reset succeeded but no user ID. Try signing in.')
+    return {
+      success: true,
+      token: login.token,
+      refreshToken: login.refreshToken,
+      user: {
+        id: descopeUserId,
+        descope_user_id: descopeUserId,
+        email: login.user?.email ?? getEmailFromJwt(login.token) ?? loginId,
+        username: login.user?.name ?? '',
+        avatarUrl: null,
+        profilePicUrl: null,
+      },
     }
   }
 )
@@ -143,66 +196,36 @@ export const loginWithPassword = createAsyncThunk(
     const rawIdentifier = identifier.trim()
     const email = rawIdentifier.toLowerCase()
 
-    /** 1) bind-password users — POST /dev/sign-in */
-    const backend = await backendLogin(email, password)
-    if (backend.success && backend.token) {
-      const descopeUserId = getDescopeUserIdFromJwt(backend.token) ?? backend.user?.id
-      if (!descopeUserId) {
-        return rejectWithValue('Login succeeded but no user ID. Please try again.')
-      }
-      return {
-        success: true,
-        user: {
-          id: descopeUserId,
-          descope_user_id: descopeUserId,
-          email: backend.user?.email ?? getEmailFromJwt(backend.token) ?? email,
-          username: backend.user?.username ?? '',
-          avatarUrl: null,
-          profilePicUrl: null,
-        },
-        token: backend.token,
-        refreshToken: undefined as string | undefined,
-      }
-    }
-
-    /** 2) Descope password (api.descope.com/v1/auth/password/signin) — web + legacy accounts */
+    /** Descope password (api.descope.com/v1/auth/password/signin) */
     const sdk = descope ?? descopeInstance ?? null
-    if (sdk) {
-      const tries = rawIdentifier !== email ? [email, rawIdentifier] : [email]
-      let lastError = backend.error || 'Invalid email or password'
-      for (const loginId of tries) {
-        const result = await authService.loginWithPassword(sdk, loginId, password)
-        if (result.success && result.token) {
-          const descopeUserId = result.user?.userId ?? getDescopeUserIdFromJwt(result.token)
-          if (!descopeUserId) {
-            return rejectWithValue('Login succeeded but no user ID. Please try again.')
-          }
-          return {
-            success: true,
-            user: {
-              id: descopeUserId,
-              descope_user_id: descopeUserId,
-              email: result.user?.email ?? getEmailFromJwt(result.token) ?? email,
-              username: result.user?.name ?? '',
-              avatarUrl: null,
-              profilePicUrl: null,
-            },
-            token: result.token,
-            refreshToken: result.refreshToken,
-          }
+    if (!sdk) return rejectWithValue('Auth not ready. Please wait.')
+
+    const tries = rawIdentifier !== email ? [email, rawIdentifier] : [email]
+    let lastError = 'Invalid email or password'
+    for (const loginId of tries) {
+      const result = await authService.loginWithPassword(sdk, loginId, password)
+      if (result.success && result.token) {
+        const descopeUserId = result.user?.userId ?? getDescopeUserIdFromJwt(result.token)
+        if (!descopeUserId) {
+          return rejectWithValue('Login succeeded but no user ID. Please try again.')
         }
-        if (result.error) lastError = result.error
+        return {
+          success: true,
+          user: {
+            id: descopeUserId,
+            descope_user_id: descopeUserId,
+            email: result.user?.email ?? getEmailFromJwt(result.token) ?? email,
+            username: result.user?.name ?? '',
+            avatarUrl: null,
+            profilePicUrl: null,
+          },
+          token: result.token,
+          refreshToken: result.refreshToken,
+        }
       }
-      return rejectWithValue(lastError)
+      if (result.error) lastError = result.error
     }
-
-    if (backend.envBlocked) {
-      return rejectWithValue(
-        'Sign-in unavailable. Backend blocked /dev/sign-in from the browser; Descope auth is not ready.'
-      )
-    }
-
-    return rejectWithValue(backend.error || 'Invalid email or password')
+    return rejectWithValue(lastError)
   }
 )
 
@@ -313,14 +336,37 @@ const authSlice = createSlice({
       .addCase(bindPassword.fulfilled, (state, action) => {
         state.isLoading = false
         state.isAuthenticated = true
-        const user = action.payload?.user as User | undefined
+        const payload = action.payload as {
+          user?: User
+          token?: string
+          refreshToken?: string
+        }
+        const user = payload?.user as User | undefined
         state.user = user ?? {
           id: (action.meta.arg as { email: string }).email,
           email: (action.meta.arg as { email: string }).email,
           username: (action.meta.arg as { username?: string }).username ?? '',
         }
+        if (payload?.token) {
+          state.token = payload.token
+          authService.setSessionToken(payload.token)
+        }
+        const rt = payload?.refreshToken
+        if (typeof rt === 'string' && rt) authService.setRefreshToken(rt)
       })
       .addCase(bindPassword.rejected, rej)
+
+      .addCase(resetPasswordAfterOtp.pending, pend)
+      .addCase(resetPasswordAfterOtp.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.isAuthenticated = true
+        state.token = action.payload.token
+        state.user = action.payload.user as User
+        if (action.payload.token) authService.setSessionToken(action.payload.token)
+        const rt = action.payload.refreshToken
+        if (typeof rt === 'string' && rt) authService.setRefreshToken(rt)
+      })
+      .addCase(resetPasswordAfterOtp.rejected, rej)
 
       .addCase(loginWithPassword.pending, pend)
       .addCase(loginWithPassword.fulfilled, (state, action) => {

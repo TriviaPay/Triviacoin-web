@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/tool
 import { apiService } from '../services/apiService'
 import { logout } from './authSlice'
 import type { LeaderboardTier } from './uiSlice'
+import { extractListFromApiPayload, filterRecentWinnersForTier } from '../utils/leaderboardResponse'
 import boyImg from '../assets/boy.jpg'
 import girlImg from '../assets/girl.jpg'
 
@@ -72,11 +73,7 @@ function listAvatarFromEntry(entry: any, idx: number): string {
 }
 
 function extractRecentWinnersList(data: Record<string, unknown> | unknown[] | undefined): Record<string, unknown>[] {
-  if (!data) return []
-  if (Array.isArray(data)) return data as Record<string, unknown>[]
-  const d = data as Record<string, unknown>
-  if (Array.isArray(d.winners)) return d.winners as Record<string, unknown>[]
-  return []
+  return extractListFromApiPayload(data)
 }
 
 /** Recent-winners payload includes `country`; bronze/silver leaderboard endpoints often do not. */
@@ -85,13 +82,7 @@ function recentWinnersForTier(
   tier: LeaderboardTier,
   drawDate: string
 ): Record<string, unknown>[] {
-  return list.filter((w) => {
-    const mode = String(w.mode ?? '').toLowerCase()
-    if (mode && mode !== tier) return false
-    const dd = String(w.draw_date ?? w.date ?? '').slice(0, 10)
-    if (drawDate && dd && dd !== drawDate) return false
-    return true
-  })
+  return filterRecentWinnersForTier(list, tier, drawDate)
 }
 
 function countryMapFromEntries(entries: Record<string, unknown>[]): Map<number, string> {
@@ -174,8 +165,8 @@ export const fetchLeaderboardData = createAsyncThunk<
 
       let rows: LeaderboardRow[] = []
       if (res.success && res.data) {
-        const raw = res.data.leaderboard ?? res.data ?? []
-        rows = transformLeaderboard(Array.isArray(raw) ? raw : [])
+        const raw = res.data.leaderboard ?? []
+        rows = transformLeaderboard(Array.isArray(raw) ? raw : extractListFromApiPayload(res.data))
       }
 
       if (rows.length === 0 && tierRecent.length > 0) {
