@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useDescope } from '@descope/react-sdk'
 import { sendOTPVerification, verifyOTP, bindPassword, loginWithPassword } from '../../store/authSlice'
+import { authService } from '../../services/authService'
 import CountryPickerModal from './CountryPickerModal'
 import DatePickerModal from './DatePickerModal'
 import PasswordChecklist, { passwordIsValid } from './PasswordChecklist'
@@ -25,6 +26,7 @@ const AuthFlow: React.FC = () => {
   const [step, setStep] = useState<string>(AUTH_STEPS.EMAIL_VERIFICATION)
   const [form, setForm] = useState(initialSignup)
   const [sessionToken, setSessionToken] = useState<string | null>(null)
+  const [sessionRefreshToken, setSessionRefreshToken] = useState<string | null>(null)
   const [sessionDescopeUserId, setSessionDescopeUserId] = useState<string | null>(null)
   const [countryOpen, setCountryOpen] = useState(false)
   const [dobOpen, setDobOpen] = useState(false)
@@ -38,29 +40,32 @@ const AuthFlow: React.FC = () => {
 
   const handleVerifyOtp = useCallback(async () => {
     const result = await dispatch(verifyOTP({ email: form.email, code: form.otp, descope }) as any)
-    if (verifyOTP.fulfilled.match(result) && result.payload?.token) {
+      if (verifyOTP.fulfilled.match(result) && result.payload?.token) {
       setSessionToken(result.payload.token)
+      if ((result.payload as any)?.refreshToken) setSessionRefreshToken((result.payload as any).refreshToken)
       if ((result.payload as any)?.descope_user_id) setSessionDescopeUserId((result.payload as any).descope_user_id)
       setStep(AUTH_STEPS.PASSWORD_SETUP)
     }
   }, [dispatch, form.email, form.otp, descope])
 
   const handleBindPassword = useCallback(async () => {
-    if (!sessionToken) return
+    const token = sessionToken ?? auth.token ?? authService.getSessionToken()
+    if (!token) return
+    const email = form.email.trim().toLowerCase()
     await dispatch(
       bindPassword({
-        email: form.email,
+        email,
         password: form.password,
         username: form.username,
         country: form.country,
         date_of_birth: form.dob,
         referral_code: form.referral || null,
-        token: sessionToken,
+        token,
         descope_user_id: sessionDescopeUserId ?? undefined,
       }) as any
     )
     setStep(AUTH_STEPS.COMPLETED)
-  }, [dispatch, form, sessionToken, sessionDescopeUserId])
+  }, [dispatch, form, sessionToken, auth.token, sessionDescopeUserId])
 
   const handleLogin = useCallback(async () => {
     await dispatch(

@@ -4,10 +4,20 @@
  */
 import { API_CONFIG } from '../config/api'
 import { ENV_CONFIG } from '../config/env'
-import { api, fetchWithAuth, hasNonEmptySessionInStorage } from '../api/axiosInstance'
+import { api, fetchWithAuth } from '../api/axiosInstance'
 import { postGuestAdBonus, type GuestAdBonusResult } from '../lib/triviaApi'
+import { extractListFromApiPayload } from '../utils/leaderboardResponse'
 
 const BASE_URL = API_CONFIG.BASE_URL
+
+function leaderboardFromResponse(raw: unknown): { success: true; data: { leaderboard: unknown[] } } | null {
+  const list = extractListFromApiPayload(raw)
+  if (!Array.isArray(raw) && raw && typeof raw === 'object') {
+    const r = raw as Record<string, unknown>
+    if (!r.ok && r.status && typeof r.status === 'number' && r.status >= 400) return null
+  }
+  return { success: true, data: { leaderboard: list } }
+}
 
 function apiErrorMessage(raw: Record<string, unknown>, fallback: string): string {
   const detail = raw.detail ?? raw.message ?? raw.error
@@ -41,88 +51,6 @@ const DAILY_LOGIN_PATHS = [
   '/api/v1/trivia/daily-login',
 ] as const
 
-export type BackendLoginResult = {
-  success: boolean
-  token?: string
-  user?: { id: string; email: string; username: string }
-  error?: string
-  /** Server returned 403 — /dev/sign-in blocked for browser/web (curl may still work). */
-  envBlocked?: boolean
-}
-
-/** POST /dev/sign-in — same contract as mobile & OpenAPI curl (email + password, X-Dev-Secret). */
-export async function backendLogin(email: string, password: string): Promise<BackendLoginResult> {
-  const normalizedEmail = email.trim().toLowerCase()
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-    'X-Dev-Secret': ENV_CONFIG.DEV_SIGNIN_SECRET ?? 'TriviaPay',
-    'X-App-Platform': 'web',
-  }
-
-  const extractError = (data: Record<string, unknown>): string => {
-    if (data.errorDescription && typeof data.errorDescription === 'string') return data.errorDescription
-    if (data.errorCode && typeof data.errorCode === 'string') {
-      const code = data.errorCode
-      if (code === 'E062903') return 'Invalid email or password'
-      if (code === 'E062901') return 'Invalid credentials'
-    }
-    let msg = (data.detail ?? data.message ?? data.msg ?? data.error ?? 'Login failed') as string
-    if (Array.isArray(msg)) msg = (msg as any)[0]?.msg || (msg as any)[0]?.loc?.join?.(' ') || String(msg)
-    if (typeof msg === 'object' && msg !== null) msg = (msg as any)?.message || JSON.stringify(msg)
-    return String(msg)
-  }
-
-  try {
-    const res = await api.post(
-      API_CONFIG.ENDPOINTS.LOGIN,
-      { email: normalizedEmail, password },
-      {
-        baseURL: BASE_URL,
-        meta: { skipAuthHeaders: true },
-        headers,
-      }
-    )
-    const raw = (res.data && typeof res.data === 'object' ? res.data : {}) as Record<string, unknown>
-    const data = unwrapApiData(raw)
-
-    if (res.status < 200 || res.status >= 300) {
-      const errStr = extractError(raw)
-      const envBlocked =
-        res.status === 403 && /not available|this environment/i.test(errStr)
-      return { success: false, error: errStr, envBlocked }
-    }
-
-    const token = (data.access_token ??
-      data.sessionJwt ??
-      data.session_token ??
-      data.token ??
-      data.jwt ??
-      raw.access_token ??
-      raw.sessionJwt ??
-      raw.token ??
-      raw.jwt) as string | undefined
-
-    const userData = (data.user ?? raw.user ?? data) as Record<string, unknown> | undefined
-    const user = userData
-      ? {
-          id: String(userData.id ?? userData.user_id ?? userData.account_id ?? userData.descope_user_id ?? normalizedEmail),
-          email: String(userData.email ?? normalizedEmail),
-          username: String(userData.username ?? userData.name ?? ''),
-        }
-      : {
-          id: normalizedEmail,
-          email: normalizedEmail,
-          username: '',
-        }
-
-    if (!token) return { success: false, error: 'No token in response' }
-    return { success: true, token, user }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Network error'
-    return { success: false, error: msg }
-  }
-}
 const TIMEOUT = ENV_CONFIG.API_TIMEOUT
 
 export const apiService = {
@@ -169,6 +97,10 @@ export const apiService = {
     }
   },
 
+  /**
+   * POST /bind-password — persists profile + sets active password in Descope (server-side).
+   * Sign-in uses Descope `password.signIn` with the same email loginId after bind succeeds.
+   */
   async bindPassword(params: {
     email: string
     password: string
@@ -177,10 +109,16 @@ export const apiService = {
     dateOfBirth: string
     referral_code?: string | null
     descope_user_id?: string
-  }, token: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  }, token: string): Promise<{
+    success: boolean
+    data?: any
+    error?: string
+    /** 409 — user already registered; safe to continue if Descope password.update succeeded */
+    alreadyBound?: boolean
+  }> {
     try {
       const body: Record<string, unknown> = {
-        email: params.email,
+        email: params.email.trim().toLowerCase(),
         password: params.password,
         username: params.username.trim(),
         country: params.country,
@@ -194,36 +132,39 @@ export const apiService = {
         token,
         _bindWithDevice: true,
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message || data.detail || 'Bind password failed')
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
+      if (res.status === 409) {
+        const detail = data.detail as { error?: string; message?: string } | string | undefined
+        const code = typeof detail === 'object' && detail ? detail.error : undefined
+        if (code === 'account_already_bound') {
+          return {
+            success: false,
+            alreadyBound: true,
+            error:
+              (typeof detail === 'object' && detail?.message) ||
+              'This account is already registered.',
+          }
+        }
+      }
+      if (!res.ok) {
+        const detail = data.detail
+        const msg =
+          (typeof detail === 'object' && detail && 'message' in detail
+            ? String((detail as { message?: string }).message)
+            : null) ||
+          (typeof detail === 'string' ? detail : null) ||
+          String(data.message ?? 'Bind password failed')
+        throw new Error(msg)
+      }
       return { success: true, data }
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Bind password failed' }
     }
   },
 
-  async fetchProfileSummary(token: string): Promise<{ success: boolean; data?: any; error?: string }> {
-    try {
-      const endpoints = [
-        API_CONFIG.ENDPOINTS.PROFILE_SUMMARY,
-        API_CONFIG.ENDPOINTS.PROFILE_COMPLETE,
-        API_CONFIG.ENDPOINTS.PROFILE,
-      ]
-      let lastError = 'Failed to load profile'
-      for (const path of endpoints) {
-        const res = await fetchWithAuth(`${BASE_URL}${path}`, { method: 'GET', token })
-        const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>
-        if (!res.ok) {
-          lastError = apiErrorMessage(raw, 'Failed to load profile')
-          if (res.status === 404 && path !== endpoints[endpoints.length - 1]) continue
-          return { success: false, error: lastError }
-        }
-        return { success: true, data: unwrapApiData(raw) }
-      }
-      return { success: false, error: lastError }
-    } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : 'Failed to load profile' }
-    }
+  async fetchProfileSummary(_token: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    /** Profile GET routes are not deployed on trivia-back-end; callers use JWT/local fallbacks. */
+    return { success: false, error: 'Profile summary unavailable' }
   },
 
   async uploadProfilePicture(
@@ -510,42 +451,14 @@ export const apiService = {
     }
   },
 
-  /** Draw schedule / pools — backend may require `Authorization` on `/draw/next`. */
+  /** Draw schedule — `/draw/next` is not deployed; return empty payload so UI keeps working. */
   async getNextDraw(
-    token?: string | null
+    _token?: string | null
   ): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
-    const urls = [
-      `${BASE_URL}/draw/next`,
-      `${BASE_URL}${API_CONFIG.ENDPOINTS.NEXT_DRAW}`,
-    ]
-    for (const url of urls) {
-      try {
-        const res = await fetchWithAuth(url, { method: 'GET', token: token ?? undefined })
-        if (res.status === 404) continue
-        const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>
-        const data = (raw?.data ?? raw) as Record<string, unknown>
-        if (!res.ok) {
-          if (res.status === 404) continue
-          /** `/draw/next` is public per product spec; some deployments still return 401 without JWT. */
-          if (
-            (res.status === 401 || res.status === 403) &&
-            !hasNonEmptySessionInStorage()
-          ) {
-            return { success: true, data: {} }
-          }
-          return { success: false, error: String(raw?.message ?? raw?.detail ?? '') }
-        }
-        return { success: true, data }
-      } catch {
-        continue
-      }
-    }
-    return { success: false }
+    return { success: true, data: {} }
   },
 
-  /**
-   * GET recent winners — same family of paths as mobile `/recent-winners`.
-   */
+  /** Recent winners — try known paths; return empty list if none exist (no throw). */
   async getRecentWinners(
     token: string | null
   ): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
@@ -559,17 +472,17 @@ export const apiService = {
         const res = await fetchWithAuth(`${BASE_URL}${path}`, { method: 'GET', token })
         const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>
         if (res.status === 404) continue
-        const data = (raw?.data ?? raw) as Record<string, unknown>
         if (!res.ok) {
           if (res.status === 404) continue
           return { success: false, error: String(raw?.message ?? raw?.detail ?? 'Failed to load winners') }
         }
-        return { success: true, data }
+        const list = extractListFromApiPayload(raw)
+        return { success: true, data: { winners: list } }
       } catch {
         continue
       }
     }
-    return { success: false, error: 'Recent winners unavailable' }
+    return { success: true, data: { winners: [] } }
   },
 
   async getFreeModeLeaderboard(
@@ -579,12 +492,8 @@ export const apiService = {
     const tryFetch = async (url: string, opts?: RequestInit & { token?: string | null }) => {
       const res = await fetchWithAuth(url, opts ?? {})
       const raw = await res.json().catch(() => ({}))
-      const data = raw?.data ?? raw
-      if (res.ok) {
-        const list = data?.leaderboard ?? data?.leaderboardData ?? (Array.isArray(data) ? data : [])
-        return { success: true, data: { leaderboard: Array.isArray(list) ? list : [] } }
-      }
-      return null
+      if (!res.ok) return null
+      return leaderboardFromResponse(raw)
     }
     const urls = [
       `${BASE_URL}${API_CONFIG.ENDPOINTS.LEADERBOARD_FREE}?draw_date=${encodeURIComponent(drawDate)}`,
@@ -605,12 +514,8 @@ export const apiService = {
     const tryFetch = async (url: string, opts?: RequestInit & { token?: string | null }) => {
       const res = await fetchWithAuth(url, opts ?? {})
       const raw = await res.json().catch(() => ({}))
-      const data = raw?.data ?? raw
-      if (res.ok) {
-        const list = data?.leaderboard ?? data?.leaderboardData ?? (Array.isArray(data) ? data : [])
-        return { success: true, data: { leaderboard: Array.isArray(list) ? list : [] } }
-      }
-      return null
+      if (!res.ok) return null
+      return leaderboardFromResponse(raw)
     }
     const result = await tryFetch(
       `${BASE_URL}${API_CONFIG.ENDPOINTS.LEADERBOARD_BRONZE}?draw_date=${encodeURIComponent(drawDate)}`,
@@ -627,12 +532,8 @@ export const apiService = {
     const tryFetch = async (url: string, opts?: RequestInit & { token?: string | null }) => {
       const res = await fetchWithAuth(url, opts ?? {})
       const raw = await res.json().catch(() => ({}))
-      const data = raw?.data ?? raw
-      if (res.ok) {
-        const list = data?.leaderboard ?? data?.leaderboardData ?? (Array.isArray(data) ? data : [])
-        return { success: true, data: { leaderboard: Array.isArray(list) ? list : [] } }
-      }
-      return null
+      if (!res.ok) return null
+      return leaderboardFromResponse(raw)
     }
     const result = await tryFetch(
       `${BASE_URL}${API_CONFIG.ENDPOINTS.LEADERBOARD_SILVER}?draw_date=${encodeURIComponent(drawDate)}`,

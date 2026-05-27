@@ -36,6 +36,22 @@ export function getDescopeUserIdFromJwt(token: string): string | null {
   return payload.sub ?? payload['d-us'] ?? null
 }
 
+/** Extract project id from Descope session JWT `iss` (e.g. …/P2yoVmehdHRYCZPehBOpMd97WMsH). */
+export function getDescopeProjectIdFromJwt(token: string): string | null {
+  const payload = decodeJwtPayload(token)
+  if (!payload) return null
+  const iss = payload.iss
+  if (typeof iss === 'string') {
+    const m = iss.match(/\/([A-Za-z0-9]{10,})$/)
+    if (m?.[1]) return m[1]
+  }
+  for (const key of ['dprj', 'projectId', 'project_id']) {
+    const v = payload[key]
+    if (typeof v === 'string' && v.trim()) return v.trim()
+  }
+  return null
+}
+
 /** Extract email from JWT if present. */
 export function getEmailFromJwt(token: string): string | null {
   const payload = decodeJwtPayload(token)

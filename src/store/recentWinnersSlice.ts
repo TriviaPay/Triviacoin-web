@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import { apiService } from '../services/apiService'
+import { extractListFromApiPayload } from '../utils/leaderboardResponse'
 import { logout } from './authSlice'
 
 export type RecentWinner = {
@@ -92,10 +93,8 @@ export const fetchRecentWinners = createAsyncThunk<
       if (!res.success || !res.data) {
         return rejectWithValue(res.error ?? 'Failed to load recent winners')
       }
-      const d = res.data as Record<string, unknown>
-      const rawList = (Array.isArray(d.winners) ? d.winners : Array.isArray(d) ? d : null) as
-        | Record<string, unknown>[]
-        | null
+      const d = res.data as Record<string, unknown> | undefined
+      const rawList = extractListFromApiPayload(d ?? {})
       return mapRecentWinners(rawList ?? [])
     } catch (e) {
       return rejectWithValue(e instanceof Error ? e.message : 'Failed to load recent winners')

@@ -3,7 +3,7 @@
  * Uses @descope/react-sdk via useDescope hook in components
  */
 import { DESCOPE_CONFIG } from '../config/descope'
-import { getDescopeUserIdFromJwt, getEmailFromJwt } from '../lib/jwt'
+import { getDescopeUserIdFromJwt, getDescopeProjectIdFromJwt, getEmailFromJwt } from '../lib/jwt'
 
 export type DescopeSdk = {
   otp?: {
@@ -11,7 +11,9 @@ export type DescopeSdk = {
     verify?: { email?: (loginId: string, code: string) => Promise<{ ok: boolean; data?: { sessionJwt?: string; refreshJwt?: string }; error?: { errorMessage?: string; errorDescription?: string } }> }
   }
   password?: {
-    signIn?: (loginId: string, password: string) => Promise<{ ok: boolean; data?: { sessionJwt?: string; refreshJwt?: string; user?: any }; error?: { errorMessage?: string; errorDescription?: string } }>
+    signIn?: (loginId: string, password: string) => Promise<{ ok: boolean; data?: { sessionJwt?: string; refreshJwt?: string; user?: any }; error?: { errorMessage?: string; errorDescription?: string; errorCode?: string } }>
+    /** Set password on OTP-verified user — required for `password.signIn` to work */
+    update?: (loginId: string, newPassword: string, token?: string) => Promise<{ ok: boolean; error?: { errorMessage?: string; errorDescription?: string; errorCode?: string } }>
   }
 } | null
 
@@ -116,15 +118,51 @@ export const authService = {
     }
   },
 
+  /**
+   * Descope POST /v1/auth/password/update — third arg must be the **refresh JWT**
+   * from OTP verify (not the session JWT). See Descope password SDK docs.
+   */
+  async setPasswordAfterOtp(
+    descope: DescopeSdk,
+    identifier: string,
+    password: string,
+    refreshToken?: string | null
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!descope?.password?.update) return { success: false, error: 'Auth not ready. Please wait.' }
+    const loginId = identifier.trim().toLowerCase()
+    const token = refreshToken ?? authService.getRefreshToken()
+    if (!token) {
+      return { success: false, error: 'Session expired. Please verify the code again.' }
+    }
+    try {
+      const resp = await descope.password.update(loginId, password, token)
+      if ((resp as any).ok) return { success: true }
+      const err = (resp as any).error
+      const msg = err?.errorDescription || err?.errorMessage || 'Failed to set password'
+      if (import.meta.env.DEV) {
+        console.warn('[auth] Descope password.update failed', {
+          loginId,
+          errorCode: err?.errorCode,
+          error: msg,
+          hint: 'password.update requires the refresh JWT from OTP verify, not the session JWT.',
+        })
+      }
+      return { success: false, error: msg }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Failed to set password' }
+    }
+  },
+
+  /** Descope POST /v1/auth/password/signin — loginId must match email used at bind (lowercased). */
   async loginWithPassword(
     descope: DescopeSdk,
     identifier: string,
     password: string
   ): Promise<{ success: boolean; token?: string; refreshToken?: string; user?: { userId: string; email?: string; name?: string }; error?: string }> {
     if (!descope?.password?.signIn) return { success: false, error: 'Auth not ready. Please wait.' }
-    const loginId = identifier.trim()
+    const loginId = identifier.trim().toLowerCase()
     try {
-      const resp = await (descope.password!.signIn as any)(loginId, password, {})
+      const resp = await descope.password.signIn(loginId, password)
       const data = (resp as any).data
       if ((resp as any).ok && data?.sessionJwt) {
         const rawUser = data?.user
@@ -139,7 +177,26 @@ export const authService = {
         }
       }
       const err = (resp as any).error
-      const msg = err?.errorMessage || err?.errorDescription || 'Invalid email or password'
+      const code = err?.errorCode as string | undefined
+      let msg = err?.errorDescription || err?.errorMessage || 'Invalid email or password'
+      if (code === 'E062903') {
+        msg =
+          'Invalid email or password. If you signed up before a password reset was done on this account, use Forgot Password once — that syncs your password with sign-in.'
+      }
+      if (import.meta.env.DEV) {
+        const cached = authService.getSessionToken()
+        const jwtProject = cached ? getDescopeProjectIdFromJwt(cached) : null
+        console.warn('[auth] Descope password.signIn failed', {
+          loginId,
+          errorCode: code,
+          descopeProjectId: DESCOPE_CONFIG.projectId,
+          signInUrl: 'https://api.descope.com/v1/auth/password/signin',
+          note:
+            'At sign-in, jwtProjectId is usually null (no session yet) — that is not a project mismatch. In Network, confirm the sign-in request Authorization header uses the same descopeProjectId.',
+          cachedJwtProjectId: jwtProject,
+          cachedJwtMatchesConfig: jwtProject ? jwtProject === DESCOPE_CONFIG.projectId : null,
+        })
+      }
       return { success: false, error: msg }
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Login failed' }

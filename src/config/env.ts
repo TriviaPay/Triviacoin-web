@@ -18,7 +18,6 @@ export interface EnvConfig {
   SENTRY_DSN?: string
   ENVIRONMENT: string
   isDevelopment: boolean
-  DEV_SIGNIN_SECRET?: string
   /** Google AdSense publisher ID (`ca-pub-…`). Defaults to this app’s AdSense account; override with `VITE_ADSENSE_CLIENT`. */
   ADSENSE_CLIENT: string
   /** Ad unit slot ID for display banner (optional) */
@@ -99,7 +98,6 @@ export const ENV_CONFIG: EnvConfig = {
   SENTRY_DSN: getEnvVar('SENTRY_DSN', ''),
   ENVIRONMENT: getEnvVar('NODE_ENV', __DEV__ ? 'development' : 'production'),
   isDevelopment: __DEV__,
-  DEV_SIGNIN_SECRET: getEnvVar('DEV_SIGNIN_SECRET', 'TriviaPay'),
   ADSENSE_CLIENT: normalizeAdsenseClientId(
     getEnvVar('ADSENSE_CLIENT', DEFAULT_ADSENSE_CLIENT_ID),
   ),

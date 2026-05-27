@@ -3,7 +3,7 @@ import { ENV_CONFIG } from './env'
 /**
  * Backend route map. Guest mode: send `X-Device-UUID` only (see `api/client` interceptor);
  * registered: `Authorization: Bearer`; `POST /bind-password`: both headers.
- * Guests may call trivia free-mode, recent-winners, draw/next, global-chat GET, faqs, app-versions/latest, guest-ad-bonus POST.
+ * Guests may call trivia free-mode, global-chat GET, faqs, app-versions/latest, guest-ad-bonus POST.
  */
 export const API_CONFIG = {
   BASE_URL: ENV_CONFIG.API_BASE_URL,
@@ -16,14 +16,9 @@ export const API_CONFIG = {
       PUSHER_AUTH: '/pusher/auth',
     },
     BIND_PASSWORD: '/bind-password',
-    /** Password sign-in — validates against bind-password DB (requires X-Dev-Secret). */
-    LOGIN: '/dev/sign-in',
     VALIDATE_REFERRAL: '/validate-referral',
     COUNTRIES: '/countries',
-    PROFILE_SUMMARY: '/profile/summary',
     PROFILE_UPLOAD_PIC: '/profile/upload-profile-pic',
-    PROFILE: '/profile',
-    PROFILE_COMPLETE: '/profile/complete',
     PROFILE_EXTENDED_UPDATE: '/profile/extended-update',
     /** Subscription / access for trivia mode cards (free, bronze, silver, gold, platinum). */
     PROFILE_MODES_STATUS: '/profile/modes/status',
@@ -50,9 +45,6 @@ export const API_CONFIG = {
     LEADERBOARD_SILVER: '/trivia/silver-mode/leaderboard',
     /** Simpler fallback when trivia/* endpoints return 404 */
     LEADERBOARD: '/leaderboard',
-    /** Public draw schedule + prize pools — trivia-back-end.vercel.app/draw/next */
-    NEXT_DRAW: '/draw/next',
-    /** Recent draw winners (mobile parity). */
     RECENT_WINNERS: '/recent-winners',
     GLOBAL_CHAT: {
       MESSAGES: '/global-chat',
