@@ -1,16 +1,18 @@
-name: Build
+name: Checks
 
 on:
   push:
     branches: ['**']
   pull_request:
+  workflow_dispatch:
 
 concurrency:
-  group: build-${{ github.workflow }}-${{ github.ref }}
+  group: checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
+    name: Typecheck and build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,4 +23,33 @@ jobs:
           cache: 'npm'
 
       - run: npm ci
+      - run: npm run typecheck
       - run: npm run build
+
+  lint-report:
+    name: Lint report
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run lint
+
+  config:
+    name: Repository config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - run: node -e "JSON.parse(require('fs').readFileSync('vercel.json', 'utf8'))"
+      - run: test -f .env.example

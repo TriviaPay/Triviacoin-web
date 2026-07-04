@@ -26,7 +26,6 @@ const AuthFlow: React.FC = () => {
   const [step, setStep] = useState<string>(AUTH_STEPS.EMAIL_VERIFICATION)
   const [form, setForm] = useState(initialSignup)
   const [sessionToken, setSessionToken] = useState<string | null>(null)
-  const [sessionRefreshToken, setSessionRefreshToken] = useState<string | null>(null)
   const [sessionDescopeUserId, setSessionDescopeUserId] = useState<string | null>(null)
   const [countryOpen, setCountryOpen] = useState(false)
   const [dobOpen, setDobOpen] = useState(false)
@@ -40,9 +39,8 @@ const AuthFlow: React.FC = () => {
 
   const handleVerifyOtp = useCallback(async () => {
     const result = await dispatch(verifyOTP({ email: form.email, code: form.otp, descope }) as any)
-      if (verifyOTP.fulfilled.match(result) && result.payload?.token) {
+    if (verifyOTP.fulfilled.match(result) && result.payload?.token) {
       setSessionToken(result.payload.token)
-      if ((result.payload as any)?.refreshToken) setSessionRefreshToken((result.payload as any).refreshToken)
       if ((result.payload as any)?.descope_user_id) setSessionDescopeUserId((result.payload as any).descope_user_id)
       setStep(AUTH_STEPS.PASSWORD_SETUP)
     }
@@ -270,4 +268,3 @@ const AuthFlow: React.FC = () => {
 }
 
 export default AuthFlow
-
